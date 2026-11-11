@@ -2294,7 +2294,7 @@ function ProfileSetupPage() {
     }
 
     loadProfile();
-  }, [user]);
+  }, [user?.id]);
 
   function handleProfileImageChange(event) {
     const file = event.target.files?.[0];
