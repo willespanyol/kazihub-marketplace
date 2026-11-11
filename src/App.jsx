@@ -1592,25 +1592,27 @@ await sendNotification({
 
             <button
               type="button"
-              onClick={handleBuySelectedPackage}
-              disabled={creatingOrder || isSuspended(profile)}
-              className="mt-6 w-full rounded-full bg-primary px-6 py-3 text-center font-semibold text-white disabled:opacity-60"
+              onClick={handleContactSeller}
+              disabled={contactLoading || isSuspended(profile)}
+              className="mt-6 w-full rounded-full bg-primary px-6 py-3 font-semibold text-white disabled:opacity-60"
             >
-              {creatingOrder ? "Creating Order..." : "Continue to Payment"}
+              {contactLoading ? "Opening Inbox..." : "Message Seller"}
             </button>
-
-            <p className="mt-3 text-sm leading-6 text-slate-600">
-              You will choose your preferred transfer method and submit your payment reference on the next page. Work starts after admin confirms payment.
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Ask questions, send project requirements, and agree on scope with the seller before ordering.
             </p>
 
             <button
               type="button"
-              onClick={handleContactSeller}
-              disabled={contactLoading}
-              className="mt-6 w-full rounded-full border border-slate-300 bg-white px-6 py-3 font-semibold text-slate-700 disabled:opacity-60"
+              onClick={handleBuySelectedPackage}
+              disabled={creatingOrder || isSuspended(profile)}
+              className="mt-4 w-full rounded-full border border-primary bg-white px-6 py-3 text-center font-semibold text-primary disabled:opacity-60"
             >
-              {contactLoading ? "Opening Messages..." : "Message Seller"}
+              {creatingOrder ? "Creating Order..." : "Order This Package"}
             </button>
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              Placing an order creates a payment-pending record. Choose a manual transfer or cryptocurrency option on the order page. Work begins only after KaziHub verifies the payment.
+            </p>
 
             <button
               type="button"
@@ -6663,7 +6665,8 @@ function MessagesPage() {
 
 function ConversationPage() {
   const { id } = useParams();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const messageEndRef = useRef(null);
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loadingConversation, setLoadingConversation] = useState(true);
@@ -6801,14 +6804,14 @@ function ConversationPage() {
     );
   }
 
-  const roleLabel = user.id === conversation.buyer_id ? "Buyer" : "Seller";
+  const roleLabel = user.id === conversation.buyer_id ? "Talking with seller" : "Buyer inquiry";
 
   return (
-    <main className="mx-auto max-w-7xl px-5 py-12">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <main className="mx-auto max-w-5xl px-4 py-6 sm:py-10">
+      <div className="mb-5 flex flex-col gap-3 rounded-2xl border bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-semibold text-primary">{roleLabel}</p>
-          <h1 className="text-4xl font-bold">{conversation.subject}</h1>
+          <h1 className="mt-1 text-xl font-bold sm:text-2xl">{conversation.subject}</h1>
           <p className="mt-2 text-muted">
             Conversation updated {conversation.updated_at ? new Date(conversation.updated_at).toLocaleString() : "Unknown"}.
           </p>
@@ -6821,10 +6824,11 @@ function ConversationPage() {
         </p>
       )}
 
-      <div className="grid gap-4">
+      <section aria-label="Conversation messages" className="min-h-64 rounded-2xl border bg-white p-4 sm:p-6">
+      <div className="grid max-h-[55vh] gap-4 overflow-y-auto" aria-live="polite">
         {messages.length === 0 ? (
           <div className="rounded-3xl border bg-white p-8 shadow-sm">
-            <p className="text-muted">No messages yet. Send the first message below.</p>
+            <p className="text-muted">Start with the project scope, deadline, files needed, or a question about this gig. Orders and payments are handled separately through KaziHub.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -6840,7 +6844,7 @@ function ConversationPage() {
                       isMine ? "bg-primary text-white" : "bg-slate-100 text-slate-800"
                     }`}
                   >
-                    <p>{messageItem.message}</p>
+                    <p className="whitespace-pre-wrap break-words">{messageItem.message}</p>
                     <p className={`mt-3 text-xs ${isMine ? "text-teal-100" : "text-slate-500"}`}>
                       {new Date(messageItem.created_at).toLocaleString()}
                     </p>
@@ -6851,18 +6855,22 @@ function ConversationPage() {
           </div>
         )}
       </div>
+      </section>
 
-      <form onSubmit={handleSendMessage} className="mt-8 grid gap-4 rounded-3xl border bg-white p-6 shadow-sm">
+      <form onSubmit={handleSendMessage} className="mt-4 grid gap-3 rounded-2xl border bg-white p-4 shadow-sm sm:p-5">
+        <p className="text-sm font-semibold text-slate-700">Your message</p>
         <textarea
           className="min-h-28 rounded-2xl border bg-slate-50 px-4 py-3 outline-none"
-          placeholder="Write a message..."
+          placeholder={user.id === conversation.seller_id ? "Reply to the buyer. Clarify scope, pricing or delivery..." : "Tell the seller what you need, your deadline and relevant details..."}
           value={newMessage}
           onChange={(event) => setNewMessage(event.target.value)}
           required
+          maxLength={5000}
+          aria-label="Write a message"
         />
-
+        <p className="text-right text-xs text-slate-500">{newMessage.length} / 5,000 characters</p>
         <button
-          disabled={sendingMessage}
+          disabled={sendingMessage || !newMessage.trim()}
           className="inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white disabled:opacity-60"
         >
           {sendingMessage ? "Sending..." : "Send Message"}
@@ -9732,10 +9740,11 @@ for (const admin of admins || []) {
             <div className="mt-6 rounded-2xl border bg-slate-50 p-5">
               <h3 className="text-lg font-bold">Manual Payment Required</h3>
               <p className="mt-2 text-sm leading-6 text-muted">
-                Before work begins, please complete payment using the money transfer method you prefer. You may use Remitly or any other trusted service that can send money to Kenya or M-Pesa. After sending payment, submit the transaction/reference code below. Admin will confirm that payment has been received, then the order will become active and the seller can start work.
+                Before work begins, choose a manual payment method below. Bank/M-Pesa transfers and cryptocurrency require KaziHub's payment instructions. After paying, submit the transaction reference. An administrator must verify actual receipt before work begins.
               </p>
 
-              <div className="mt-4 space-y-2 text-sm">
+              {selectedManualPaymentMethod !== "Cryptocurrency (manual verification)" && (
+                <div className="mt-4 space-y-2 text-sm">
                 <p><strong>Recipient Country:</strong> Kenya</p>
                 <p><strong>Recipient Name:</strong> Willy Mwangi</p>
                 <p><strong>M-Pesa Number:</strong> +254742775321</p>
@@ -9743,6 +9752,15 @@ for (const admin of admins || []) {
                   <strong>Amount:</strong> {order.currency} {Number(order.price).toFixed(2)}
                 </p>
               </div>
+              )}
+              {selectedManualPaymentMethod === "Cryptocurrency (manual verification)" && (
+                <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                  <strong>Cryptocurrency — manual transfer</strong>
+                  <p className="mt-2">KaziHub has not published a verified receiving wallet or network on this page. Contact support for the official wallet address, network, required token and exact amount before sending funds. Never transfer to an address shared by another user.</p>
+                  <p className="mt-2">After sending through the confirmed network, submit the transaction hash and the asset/network in the notes. Crypto transfers can be irreversible and may involve network fees. Your order remains pending until an administrator verifies receipt.</p>
+                  <Link to="/support" className="mt-2 inline-block font-semibold underline">Contact KaziHub Support</Link>
+                </div>
+              )}
 
               <div className="mt-4 rounded-xl bg-yellow-50 p-4 text-sm text-yellow-700">
                 Do not mark the order as paid yourself. The order starts only after admin confirms receipt.
@@ -9780,12 +9798,13 @@ for (const admin of admins || []) {
                     <option value="Sendwave to Kenya">Sendwave to Kenya</option>
                     <option value="Bank transfer to Kenya">Bank transfer to Kenya</option>
                     <option value="Direct M-Pesa transfer">Direct M-Pesa transfer</option>
+                    <option value="Cryptocurrency (manual verification)">Cryptocurrency (manual verification)</option>
                     <option value="Other international transfer">Other international transfer</option>
                   </select>
 
                   <input
                     className="rounded-xl border bg-white px-4 py-3 outline-none"
-                    placeholder="Payment transaction/reference code"
+                    placeholder={selectedManualPaymentMethod === "Cryptocurrency (manual verification)" ? "Blockchain transaction hash (TXID)" : "Payment transaction/reference code"}
                     value={paymentReference}
                     onChange={(event) => setPaymentReference(event.target.value)}
                     required
@@ -9793,7 +9812,7 @@ for (const admin of admins || []) {
 
                   <textarea
                     className="min-h-24 rounded-xl border bg-white px-4 py-3 outline-none"
-                    placeholder="Optional note, sender name, payment time, or extra details"
+                    placeholder={selectedManualPaymentMethod === "Cryptocurrency (manual verification)" ? "Required: cryptocurrency and network used; amount sent and time" : "Optional note, sender name, payment time, or extra details"}
                     value={paymentNote}
                     onChange={(event) => setPaymentNote(event.target.value)}
                   />
