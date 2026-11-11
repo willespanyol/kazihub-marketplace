@@ -1,23 +1,35 @@
 # KaziHub Marketplace
 
-React/Vite marketplace frontend backed by Supabase.
-
-## Netlify deployment
-
-Use the **existing** Netlify project `kazihub-marketplace` (custom domain `kazihub.site`), not a new site.
-
-- Repository: `willespanyol/kazihub-marketplace`
-- Production branch: `main`
-- Build command: `npm run build`
-- Publish directory: `dist`
-- SPA redirects: `netlify.toml`
-
-In Netlify **Project configuration → Environment variables**, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` using the project's Supabase URL and **publishable/anon** key. Never put a service-role key in Vite variables. Values must be available during the build.
+React/Vite frontend with a Supabase backend, configured for deployment from GitHub to Netlify.
 
 ## Local development
 
-Run `npm ci`, copy `.env.example` to `.env.local`, provide the Supabase settings, and run `npm run dev`.
+1. Install Node.js compatible with Vite 8 (Node.js 20.19+ or 22.12+).
+2. Run `npm ci`.
+3. Copy `.env.example` to `.env.local` and populate the Supabase project URL and **publishable/anon** key (never use a service-role or secret key in the frontend).
+4. Run `npm run dev`.
 
-**Source synchronization:** The original local project ZIP includes uncommitted application changes. Ensure the prepared clean source ZIP is pushed to this repository before enabling production deployment; the GitHub checkout may otherwise be older than the local project.
+## Netlify (existing site: kazihub-marketplace)
 
-Truehost and Apache deployment bundles are not required on Netlify.
+- Repository: `willespanyol/kazihub-marketplace`
+- Branch: `main`
+- Base directory: repository root
+- Build command: `npm run build`
+- Publish directory: `dist`
+- SPA routes: handled by `netlify.toml`
+- Node.js: choose Node 22 or a compatible newer LTS version in Netlify
+
+In **Netlify > Project configuration > Environment variables**, add:
+
+- `VITE_SUPABASE_URL` — Supabase project API URL
+- `VITE_SUPABASE_ANON_KEY` — publishable (or legacy anon) key
+
+Vite embeds variables with the `VITE_` prefix into browser JavaScript. These variables must not contain secrets. Netlify must have them at build time; environment values in `.env.local` are intentionally excluded from the repository.
+
+To retain the current domain and project settings, link the GitHub repository from the **existing** Netlify project (`kazihub-marketplace`). Do not create a new Netlify site.
+
+## Deployment
+
+Push to `main`; after Netlify is linked, the existing site will build and deploy automatically. Verify authentication, marketplace listings, and client-side routes after deployment.
+
+The Truehost/cPanel deployment artifacts have been excluded; no Apache `.htaccess` configuration is required on Netlify.

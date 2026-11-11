@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
-import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from "react-router-dom";
-import { Search, ShieldCheck, CreditCard, Users, Star, ArrowRight, Bell, Heart, MessageCircle } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Search, ShieldCheck, CreditCard, Users, Star, ArrowRight, Bell, Heart, MessageCircle, ImagePlus, X } from "lucide-react";
 import { categories } from "./data/categories";
 import { services } from "./data/services";
-import { useAuth } from "./context/AuthContext";
+import { useAuth } from "./context/useAuth";
 import { supabase } from "./lib/supabaseClient";
 async function sendNotification({ userId, type, title, message, link }) {
   if (!userId) return;
@@ -20,11 +20,47 @@ async function sendNotification({ userId, type, title, message, link }) {
     console.error("Notification error:", error.message);
   }
 }
+
+function isProfileIncomplete(profile) {
+  if (!profile || profile.role === "admin") {
+    return false;
+  }
+
+  const commonMissing =
+    profile.profile_completed !== true ||
+    !profile.full_name ||
+    !profile.country ||
+    !profile.headline ||
+    !profile.bio ||
+    !profile.languages;
+
+  const sellerMissing =
+    profile.role === "seller" &&
+    (!profile.professional_title ||
+      !profile.skills ||
+      !profile.years_experience ||
+      !profile.website_url ||
+      !profile.categories ||
+      !profile.seller_description);
+
+  const buyerMissing =
+    profile.role === "buyer" &&
+    (!profile.buyer_type ||
+      !profile.common_project_type ||
+      !profile.location ||
+      !profile.communication_note);
+
+  return commonMissing || sellerMissing || buyerMissing;
+}
+
 function Header() {
   const { user, profile, signOut } = useAuth();
-const [notifications, setNotifications] = useState([]);
-const [notificationsOpen, setNotificationsOpen] = useState(false);
-const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const location = useLocation();
+  const notificationRef = useRef(null);
+
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
   let dashboardLink = "/buyer-dashboard";
 
   if (profile?.role === "seller") {
@@ -34,7 +70,7 @@ const [loadingNotifications, setLoadingNotifications] = useState(false);
   if (profile?.role === "admin") {
     dashboardLink = "/admin";
   }
-async function fetchNotifications() {
+const fetchNotifications = useCallback(async () => {
   if (!user) {
     setNotifications([]);
     return;
@@ -54,11 +90,42 @@ async function fetchNotifications() {
   }
 
   setLoadingNotifications(false);
-}
+}, [user]);
 
 useEffect(() => {
-  fetchNotifications();
-}, [user]);
+  function loadNotifications() {
+    fetchNotifications();
+  }
+  loadNotifications();
+}, [fetchNotifications]);
+
+useEffect(() => {
+  if (notificationsOpen) {
+    const handleClickOutside = (event) => {
+      if (
+        notificationRef.current &&
+        !notificationRef.current.contains(event.target)
+      ) {
+        setNotificationsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }
+
+  return undefined;
+}, [notificationsOpen]);
+
+useEffect(() => {
+  function closeOnNavigate() {
+    setNotificationsOpen(false);
+  }
+  closeOnNavigate();
+}, [location.pathname]);
 
 async function markNotificationRead(notification) {
   if (!notification || notification.is_read) return;
@@ -106,6 +173,7 @@ const unreadNotificationCount = notifications.filter(
             <MessageCircle size={16} /> Messages
           </Link>
           <Link to="/support">Support</Link>
+          <Link to="/profile-setup">Profile</Link>
           <Link to="/seller-dashboard">Sell Services</Link>
           {profile?.role === "admin" && <Link to="/admin">Admin</Link>}
         </nav>
@@ -113,7 +181,7 @@ const unreadNotificationCount = notifications.filter(
         <div className="flex items-center gap-3">
           {user ? (
             <>
-            <div className="relative">
+            <div ref={notificationRef} className="relative">
   <button
     onClick={() => {
       setNotificationsOpen((current) => !current);
@@ -393,7 +461,7 @@ function ServicesPage() {
   const [sortBy, setSortBy] = useState("recommended");
   const [savedServiceIds, setSavedServiceIds] = useState([]);
 
-  async function fetchSavedServices() {
+  const fetchSavedServices = useCallback(async () => {
     if (!user) {
       setSavedServiceIds([]);
       return;
@@ -409,11 +477,14 @@ function ServicesPage() {
     } else {
       setSavedServiceIds([]);
     }
-  }
+  }, [user]);
 
   useEffect(() => {
-    fetchSavedServices();
-  }, [user]);
+    function loadSavedServices() {
+      fetchSavedServices();
+    }
+    loadSavedServices();
+  }, [fetchSavedServices]);
 
   async function toggleSaveService(serviceOfferId) {
     if (!user) {
@@ -754,7 +825,6 @@ function getCategoryFromSlug(slug) {
 
 function CategoryPage() {
   const { slug } = useParams();
-  const [pageCategories, setPageCategories] = useState(categories);
   const [category, setCategory] = useState(getCategoryFromSlug(slug));
   const [offers, setOffers] = useState([]);
   const [loadingOffers, setLoadingOffers] = useState(true);
@@ -769,7 +839,6 @@ function CategoryPage() {
         .order("display_order", { ascending: true });
 
       if (!error && data?.length) {
-        setPageCategories(data);
         const found = data.find((item) => item.slug === slug);
         setCategory(found || getCategoryFromSlug(slug));
       }
@@ -1074,7 +1143,7 @@ await sendNotification({
     navigate(`/messages/${createdConversation.id}`);
   }
 
-  async function fetchOffer() {
+  const fetchOffer = useCallback(async () => {
     setLoadingOffer(true);
     setErrorText("");
 
@@ -1111,6 +1180,12 @@ await sendNotification({
     }
 
     setOffer(offerData);
+
+    supabase
+      .from("service_offer_views")
+      .insert({ service_offer_id: id })
+      .then(() => {})
+      .catch(() => {});
 
     const { data: packageData } = await supabase
       .from("service_offer_packages")
@@ -1157,16 +1232,16 @@ await sendNotification({
 
     const { data: reviewData, error: reviewError } = await supabase
       .from("reviews")
-      .select("*")
+      .select("id, rating, comment, created_at")
       .eq("service_offer_id", id)
       .order("created_at", { ascending: false });
 
     setServiceReviews(!reviewError && reviewData ? reviewData : []);
     setLoadingReviews(false);
     setLoadingOffer(false);
-  }
+  }, [id]);
 
-  async function fetchIsServiceSaved() {
+  const fetchIsServiceSaved = useCallback(async () => {
     if (!user || !id) {
       setIsServiceSaved(false);
       return;
@@ -1180,7 +1255,7 @@ await sendNotification({
       .maybeSingle();
 
     setIsServiceSaved(!error && Boolean(data));
-  }
+  }, [user, id]);
 
   async function handleToggleSaveService() {
     if (!user) {
@@ -1225,14 +1300,20 @@ await sendNotification({
   }
 
   useEffect(() => {
-    if (id) {
-      fetchOffer();
+    function loadOffer() {
+      if (id) {
+        fetchOffer();
+      }
     }
-  }, [id]);
+    loadOffer();
+  }, [id, fetchOffer]);
 
   useEffect(() => {
-    fetchIsServiceSaved();
-  }, [user, id]);
+    function loadIsServiceSaved() {
+      fetchIsServiceSaved();
+    }
+    loadIsServiceSaved();
+  }, [fetchIsServiceSaved]);
 
   const selectedPackage =
     packages.find((packageItem) => packageItem.tier === selectedPackageTier) ||
@@ -1525,6 +1606,36 @@ function SignupPage() {
   const [message, setMessage] = useState("");
   const [errorText, setErrorText] = useState("");
 
+  async function signInWithGoogle() {
+    setErrorText("");
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/dashboard-redirect`,
+      },
+    });
+
+    if (error) {
+      setErrorText(error.message);
+    }
+  }
+
+  async function signInWithApple() {
+    setErrorText("");
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "apple",
+      options: {
+        redirectTo: `${window.location.origin}/dashboard-redirect`,
+      },
+    });
+
+    if (error) {
+      setErrorText(error.message);
+    }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -1533,18 +1644,14 @@ function SignupPage() {
     setErrorText("");
 
     try {
-      const data = await signUp({
+      await signUp({
         fullName,
         email,
         password,
         role,
       });
 
-      if (data.session) {
-        navigate(role === "seller" ? "/seller-dashboard" : "/buyer-dashboard");
-      } else {
-        setMessage("Account created. Check your email to confirm your account, then login.");
-      }
+      navigate("/profile-setup");
     } catch (error) {
       setErrorText(error.message);
     } finally {
@@ -1553,46 +1660,70 @@ function SignupPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-5 py-16">
+    <main className="mx-auto max-w-md px-5 py-16">
       <form onSubmit={handleSubmit} className="rounded-3xl border bg-white p-8 shadow-sm">
         <h1 className="text-3xl font-bold">Create your KaziHub account</h1>
-        <p className="mt-2 text-muted">Choose whether you are joining as a buyer or seller.</p>
+        <p className="mt-2 text-muted">Sign up securely with email or continue with Google or Apple.</p>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-2">
+        <div className="mt-8 grid gap-3">
           <button
             type="button"
-            onClick={() => setRole("buyer")}
-            className={`rounded-2xl border p-6 text-left ${
-              role === "buyer" ? "border-primary bg-teal-50" : "hover:border-primary"
-            }`}
+            onClick={signInWithGoogle}
+            className="rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:border-slate-400"
           >
-            <h2 className="text-xl font-bold">I am a Buyer</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              Hire sellers, place orders, post Project Requests, and manage deliveries.
-            </p>
+            Continue with Google
           </button>
 
           <button
             type="button"
-            onClick={() => setRole("seller")}
-            className={`rounded-2xl border p-6 text-left ${
-              role === "seller" ? "border-primary bg-teal-50" : "hover:border-primary"
-            }`}
+            onClick={signInWithApple}
+            className="rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:border-slate-400"
           >
-            <h2 className="text-xl font-bold">I am a Seller</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
-              Create up to 10 Service Offers, receive orders, deliver work, and get paid.
-            </p>
+            Continue with Apple
           </button>
         </div>
 
-        <div className="mt-8 grid gap-4">
+        <div className="mt-6 flex items-center gap-3 text-sm text-slate-500">
+          <span className="h-px flex-1 bg-slate-200" />
+          <span>or sign up with email</span>
+          <span className="h-px flex-1 bg-slate-200" />
+        </div>
+
+        <div className="mt-6 grid gap-4">
+          <div className="grid gap-2 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+            <span className="text-sm font-semibold text-slate-700">Role</span>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setRole("buyer")}
+                className={`rounded-2xl border p-4 text-left ${
+                  role === "buyer" ? "border-primary bg-primary/10" : "border-slate-200 bg-white"
+                }`}
+              >
+                <h2 className="text-base font-semibold">Buyer</h2>
+                <p className="mt-1 text-sm text-slate-600">Hire sellers, submit orders, and manage deliveries.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setRole("seller")}
+                className={`rounded-2xl border p-4 text-left ${
+                  role === "seller" ? "border-primary bg-primary/10" : "border-slate-200 bg-white"
+                }`}
+              >
+                <h2 className="text-base font-semibold">Seller</h2>
+                <p className="mt-1 text-sm text-slate-600">Sell services, manage orders, and grow your business.</p>
+              </button>
+            </div>
+          </div>
+
           <input
             className="rounded-xl border px-4 py-3 outline-none"
             placeholder="Full name"
+            type="text"
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
             required
+            autoComplete="name"
           />
 
           <input
@@ -1602,6 +1733,7 @@ function SignupPage() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
+            autoComplete="email"
           />
 
           <input
@@ -1612,6 +1744,7 @@ function SignupPage() {
             onChange={(event) => setPassword(event.target.value)}
             required
             minLength={6}
+            autoComplete="new-password"
           />
 
           {message && (
@@ -1632,6 +1765,10 @@ function SignupPage() {
           >
             {loading ? "Creating account..." : "Create Account"}
           </button>
+
+          <p className="text-xs leading-5 text-slate-500">
+            Use Google Password Manager or your browser’s password manager to save your password securely.
+          </p>
         </div>
       </form>
     </main>
@@ -1647,6 +1784,36 @@ function LoginPage() {
 
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState("");
+
+  async function signInWithGoogle() {
+    setErrorText("");
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/dashboard-redirect`,
+      },
+    });
+
+    if (error) {
+      setErrorText(error.message);
+    }
+  }
+
+  async function signInWithApple() {
+    setErrorText("");
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "apple",
+      options: {
+        redirectTo: `${window.location.origin}/dashboard-redirect`,
+      },
+    });
+
+    if (error) {
+      setErrorText(error.message);
+    }
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -1678,7 +1845,31 @@ function LoginPage() {
         <h1 className="text-3xl font-bold">Login</h1>
         <p className="mt-2 text-muted">Access your buyer or seller dashboard.</p>
 
-        <div className="mt-8 grid gap-4">
+        <div className="mt-8 grid gap-3">
+          <button
+            type="button"
+            onClick={signInWithGoogle}
+            className="rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:border-slate-400"
+          >
+            Continue with Google
+          </button>
+
+          <button
+            type="button"
+            onClick={signInWithApple}
+            className="rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:border-slate-400"
+          >
+            Continue with Apple
+          </button>
+        </div>
+
+        <div className="mt-6 flex items-center gap-3 text-sm text-slate-500">
+          <span className="h-px flex-1 bg-slate-200" />
+          <span>or sign in with email</span>
+          <span className="h-px flex-1 bg-slate-200" />
+        </div>
+
+        <div className="mt-6 grid gap-4">
           <input
             className="rounded-xl border px-4 py-3 outline-none"
             placeholder="Email address"
@@ -1686,6 +1877,7 @@ function LoginPage() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
+            autoComplete="email"
           />
 
           <input
@@ -1695,7 +1887,17 @@ function LoginPage() {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
+            autoComplete="current-password"
           />
+
+          <div className="flex items-center justify-between text-sm text-slate-600">
+            <p className="text-xs text-slate-500">
+              Use Google Password Manager or your browser’s password manager to save your password securely.
+            </p>
+            <Link to="/forgot-password" className="font-semibold text-primary">
+              Forgot Password?
+            </Link>
+          </div>
 
           {errorText && (
             <p className="rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700">
@@ -1711,6 +1913,651 @@ function LoginPage() {
           </button>
         </div>
       </form>
+    </main>
+  );
+}
+
+function ForgotPasswordPage() {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [errorText, setErrorText] = useState("");
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    setLoading(true);
+    setMessage("");
+    setErrorText("");
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    if (error) {
+      setErrorText(error.message);
+    } else {
+      setMessage("Check your email for a password reset link.");
+    }
+
+    setLoading(false);
+  }
+
+  return (
+    <main className="mx-auto max-w-md px-5 py-16">
+      <form onSubmit={handleSubmit} className="rounded-3xl border bg-white p-8 shadow-sm">
+        <h1 className="text-3xl font-bold">Forgot Password</h1>
+        <p className="mt-2 text-muted">Enter your email and we’ll send a password reset link.</p>
+
+        <div className="mt-8 grid gap-4">
+          <input
+            className="rounded-xl border px-4 py-3 outline-none"
+            placeholder="Email address"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+            autoComplete="email"
+          />
+
+          {message && (
+            <p className="rounded-xl bg-green-50 p-4 text-sm font-medium text-green-700">
+              {message}
+            </p>
+          )}
+
+          {errorText && (
+            <p className="rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700">
+              {errorText}
+            </p>
+          )}
+
+          <button
+            disabled={loading}
+            className="rounded-full bg-primary px-6 py-3 font-semibold text-white disabled:opacity-60"
+          >
+            {loading ? "Sending link..." : "Send Reset Link"}
+          </button>
+        </div>
+      </form>
+    </main>
+  );
+}
+
+function ResetPasswordPage() {
+  const navigate = useNavigate();
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [errorText, setErrorText] = useState("");
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    setLoading(true);
+    setMessage("");
+    setErrorText("");
+
+    const { error } = await supabase.auth.updateUser({ password });
+
+    if (error) {
+      setErrorText(error.message);
+    } else {
+      setMessage("Your password has been updated. You can now log in.");
+    }
+
+    setLoading(false);
+  }
+
+  return (
+    <main className="mx-auto max-w-md px-5 py-16">
+      <form onSubmit={handleSubmit} className="rounded-3xl border bg-white p-8 shadow-sm">
+        <h1 className="text-3xl font-bold">Reset Password</h1>
+        <p className="mt-2 text-muted">Enter a new password to finish resetting your account.</p>
+
+        <div className="mt-8 grid gap-4">
+          <input
+            className="rounded-xl border px-4 py-3 outline-none"
+            placeholder="New password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+            minLength={6}
+            autoComplete="new-password"
+          />
+
+          {message && (
+            <p className="rounded-xl bg-green-50 p-4 text-sm font-medium text-green-700">
+              {message}
+            </p>
+          )}
+
+          {errorText && (
+            <p className="rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700">
+              {errorText}
+            </p>
+          )}
+
+          <button
+            disabled={loading}
+            className="rounded-full bg-primary px-6 py-3 font-semibold text-white disabled:opacity-60"
+          >
+            {loading ? "Updating password..." : "Update Password"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/login")}
+            className="rounded-full border border-slate-300 bg-white px-6 py-3 font-semibold text-slate-700"
+          >
+            Back to Login
+          </button>
+        </div>
+      </form>
+    </main>
+  );
+}
+
+function DashboardRedirectPage() {
+  const navigate = useNavigate();
+  const [errorText, setErrorText] = useState("");
+
+  useEffect(() => {
+    async function redirect() {
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error) {
+        setErrorText(error.message);
+        return;
+      }
+
+      const user = data.session?.user;
+
+      if (!user) {
+        navigate("/login");
+        return;
+      }
+
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError) {
+        setErrorText(profileError.message);
+        return;
+      }
+
+      if (profileData?.role === "admin") {
+        navigate("/admin");
+        return;
+      }
+
+      if (isProfileIncomplete(profileData)) {
+        navigate("/profile-setup");
+        return;
+      }
+
+      if (profileData?.role === "seller") {
+        navigate("/seller-dashboard");
+      } else {
+        navigate("/buyer-dashboard");
+      }
+    }
+
+    redirect();
+  }, [navigate]);
+
+  return (
+    <main className="mx-auto max-w-md px-5 py-16">
+      <div className="rounded-3xl border bg-white p-8 shadow-sm">
+        <h1 className="text-3xl font-bold">Redirecting...</h1>
+        <p className="mt-4 text-slate-600">
+          We are checking your account and sending you to the right dashboard.
+        </p>
+        {errorText && (
+          <p className="mt-6 rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700">
+            {errorText}
+          </p>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function ProfileSetupPage() {
+  const navigate = useNavigate();
+  const { user, profile, loading } = useAuth();
+
+  const [profileData, setProfileData] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [fullName, setFullName] = useState("");
+  const [country, setCountry] = useState("");
+  const [headline, setHeadline] = useState("");
+  const [bio, setBio] = useState("");
+  const [languages, setLanguages] = useState("");
+  const [profileImageFile, setProfileImageFile] = useState(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState("");
+
+  const [professionalTitle, setProfessionalTitle] = useState("");
+  const [skills, setSkills] = useState("");
+  const [yearsExperience, setYearsExperience] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [categories, setCategories] = useState("");
+  const [sellerDescription, setSellerDescription] = useState("");
+
+  const [buyerType, setBuyerType] = useState("");
+  const [commonProjectType, setCommonProjectType] = useState("");
+  const [location, setLocation] = useState("");
+  const [communicationNote, setCommunicationNote] = useState("");
+
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [errorText, setErrorText] = useState("");
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/login");
+    }
+  }, [loading, user, navigate]);
+
+  useEffect(() => {
+    async function loadProfile() {
+      if (!user) return;
+
+      setLoadingProfile(true);
+      setErrorText("");
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (error) {
+        setErrorText(error.message);
+        setLoadingProfile(false);
+        return;
+      }
+
+      setProfileData(data);
+      setFullName(data?.full_name || "");
+      setCountry(data?.country || "");
+      setHeadline(data?.headline || "");
+      setBio(data?.bio || "");
+      setLanguages(data?.languages || "");
+      setPreviewImageUrl(data?.profile_image_url || "");
+
+      setProfessionalTitle(data?.professional_title || "");
+      setSkills(data?.skills || "");
+      setYearsExperience(data?.years_experience || "");
+      setWebsiteUrl(data?.website_url || "");
+      setCategories(data?.categories || "");
+      setSellerDescription(data?.seller_description || "");
+
+      setBuyerType(data?.buyer_type || "");
+      setCommonProjectType(data?.common_project_type || "");
+      setLocation(data?.location || "");
+      setCommunicationNote(data?.communication_note || "");
+
+      setLoadingProfile(false);
+    }
+
+    loadProfile();
+  }, [user]);
+
+  function handleProfileImageChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setProfileImageFile(file);
+    setPreviewImageUrl(URL.createObjectURL(file));
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+
+    if (!user) return;
+
+    setSaving(true);
+    setErrorText("");
+    setMessage("");
+
+    let profileImageUrl = profileData?.profile_image_url || null;
+
+    if (profileImageFile) {
+      const safeFileName = profileImageFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const filePath = `${user.id}/${Date.now()}-${safeFileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("profile-images")
+        .upload(filePath, profileImageFile);
+
+      if (uploadError) {
+        setErrorText(uploadError.message);
+        setSaving(false);
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("profile-images")
+        .getPublicUrl(filePath);
+
+      profileImageUrl = publicUrlData.publicUrl;
+    }
+
+    const payload = {
+      full_name: fullName.trim() || null,
+      profile_image_url: profileImageUrl,
+      country: country.trim() || null,
+      headline: headline.trim() || null,
+      bio: bio.trim() || null,
+      languages: languages.trim() || null,
+      professional_title: professionalTitle.trim() || null,
+      skills: skills.trim() || null,
+      years_experience: yearsExperience.trim() || null,
+      website_url: websiteUrl.trim() || null,
+      categories: categories.trim() || null,
+      seller_description: sellerDescription.trim() || null,
+      buyer_type: buyerType.trim() || null,
+      common_project_type: commonProjectType.trim() || null,
+      location: location.trim() || null,
+      communication_note: communicationNote.trim() || null,
+      profile_completed: true,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from("profiles")
+      .update(payload)
+      .eq("id", user.id);
+
+    if (error) {
+      if (error.message?.includes("profile_completed")) {
+        const fallbackPayload = { ...payload };
+        delete fallbackPayload.profile_completed;
+
+        const { error: fallbackError } = await supabase
+          .from("profiles")
+          .update(fallbackPayload)
+          .eq("id", user.id);
+
+        if (fallbackError) {
+          setErrorText(
+            `Please add profile_completed column to profiles table. Save failed: ${fallbackError.message}`
+          );
+          setSaving(false);
+          return;
+        }
+
+        setErrorText(
+          "Profile saved, but profile_completed is missing from profiles table. Please add that column to enable the onboarding guard."
+        );
+        setProfileData({ ...profileData, ...fallbackPayload });
+        setSaving(false);
+        return;
+      }
+
+      setErrorText(error.message);
+      setSaving(false);
+      return;
+    }
+
+    const redirectPath = profileData?.role === "admin"
+      ? "/admin"
+      : profileData?.role === "seller"
+      ? "/seller-dashboard"
+      : "/buyer-dashboard";
+
+    setMessage("Profile saved successfully. Redirecting...");
+    navigate(redirectPath);
+  }
+
+  const currentRole = profileData?.role || profile?.role || "buyer";
+  const showSellerFields = currentRole === "seller";
+  const showBuyerFields = currentRole === "buyer";
+
+  return (
+    <main className="mx-auto max-w-5xl px-5 py-16">
+      <div className="rounded-3xl border bg-white p-8 shadow-sm">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold">Profile Setup</h1>
+          <p className="mt-2 text-muted">
+            Complete your profile so KaziHub can connect you to buyers and sellers with confidence.
+          </p>
+        </div>
+
+        {loadingProfile ? (
+          <p className="text-muted">Loading your profile...</p>
+        ) : (
+          <form onSubmit={handleSubmit} className="grid gap-8">
+            <div className="grid gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-6">
+              <h2 className="text-xl font-semibold">Basic profile details</h2>
+
+              <div className="grid gap-4">
+                <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                  Full name
+                  <input
+                    value={fullName}
+                    onChange={(event) => setFullName(event.target.value)}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                  Country
+                  <input
+                    value={country}
+                    onChange={(event) => setCountry(event.target.value)}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                  Headline
+                  <input
+                    value={headline}
+                    onChange={(event) => setHeadline(event.target.value)}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                  Languages
+                  <input
+                    value={languages}
+                    onChange={(event) => setLanguages(event.target.value)}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
+                    placeholder="English, Swahili, Spanish"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                  Short bio / description
+                  <textarea
+                    value={bio}
+                    onChange={(event) => setBio(event.target.value)}
+                    className="min-h-[140px] rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                  Profile image
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleProfileImageChange}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                  />
+                </label>
+
+                {previewImageUrl && (
+                  <img
+                    src={previewImageUrl}
+                    alt="Profile preview"
+                    className="h-32 w-32 rounded-3xl object-cover"
+                  />
+                )}
+              </div>
+            </div>
+
+            {showSellerFields && (
+              <div className="grid gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-6">
+                <h2 className="text-xl font-semibold">Seller details</h2>
+
+                <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                  Professional title
+                  <input
+                    value={professionalTitle}
+                    onChange={(event) => setProfessionalTitle(event.target.value)}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                  Skills
+                  <input
+                    value={skills}
+                    onChange={(event) => setSkills(event.target.value)}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
+                    placeholder="Design, Web Development, SEO"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                  Years of experience
+                  <input
+                    type="number"
+                    min="0"
+                    value={yearsExperience}
+                    onChange={(event) => setYearsExperience(event.target.value)}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                  Portfolio / website link
+                  <input
+                    value={websiteUrl}
+                    onChange={(event) => setWebsiteUrl(event.target.value)}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
+                    placeholder="https://"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                  Service categories
+                  <input
+                    value={categories}
+                    onChange={(event) => setCategories(event.target.value)}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
+                    placeholder="Marketing, Web Development, Design"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                  Seller description
+                  <textarea
+                    value={sellerDescription}
+                    onChange={(event) => setSellerDescription(event.target.value)}
+                    className="min-h-[120px] rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
+                    required
+                  />
+                </label>
+              </div>
+            )}
+
+            {showBuyerFields && (
+              <div className="grid gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-6">
+                <h2 className="text-xl font-semibold">Buyer details</h2>
+
+                <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                  Buyer type
+                  <input
+                    value={buyerType}
+                    onChange={(event) => setBuyerType(event.target.value)}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
+                    placeholder="Startup, Enterprise, Agency"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                  Common project type
+                  <input
+                    value={commonProjectType}
+                    onChange={(event) => setCommonProjectType(event.target.value)}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
+                    placeholder="Website, Branding, Marketing Campaign"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                  Location / city
+                  <input
+                    value={location}
+                    onChange={(event) => setLocation(event.target.value)}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
+                    required
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-semibold text-slate-700">
+                  Preferred communication note
+                  <textarea
+                    value={communicationNote}
+                    onChange={(event) => setCommunicationNote(event.target.value)}
+                    className="min-h-[120px] rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
+                    placeholder="I prefer email and scheduled calls for project discussions."
+                    required
+                  />
+                </label>
+              </div>
+            )}
+
+            {errorText && (
+              <p className="rounded-3xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                {errorText}
+              </p>
+            )}
+
+            {message && (
+              <p className="rounded-3xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+                {message}
+              </p>
+            )}
+
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <button
+                type="submit"
+                disabled={saving}
+                className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {saving ? "Saving..." : "Save and Continue"}
+              </button>
+
+              <Link
+                to={profile?.role === "admin" ? "/admin" : profile?.role === "seller" ? "/seller-dashboard" : "/buyer-dashboard"}
+                className="text-sm font-semibold text-primary"
+              >
+                Back to Dashboard
+              </Link>
+            </div>
+          </form>
+        )}
+      </div>
     </main>
   );
 }
@@ -1755,25 +2602,53 @@ function SellerDashboardPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
   const [profileError, setProfileError] = useState("");
+  const [activeSellerSection, setActiveSellerSection] = useState("overview");
+  const sellerSections = [
+    { id: "overview", label: "Overview" },
+    { id: "verification", label: "Verification" },
+    { id: "profile", label: "Profile" },
+    { id: "drafts", label: "Drafts" },
+    { id: "requests", label: "Buyer Requests" },
+    { id: "services", label: "Services" },
+    { id: "analytics", label: "Analytics" },
+    { id: "customOffers", label: "Custom Offers" },
+    { id: "orders", label: "Orders" },
+    { id: "payouts", label: "Payouts" },
+    { id: "reviews", label: "Reviews" },
+  ];
 
   const [serviceDrafts, setServiceDrafts] = useState([]);
   const [loadingServiceDrafts, setLoadingServiceDrafts] = useState(true);
 
+  const [availableRequests, setAvailableRequests] = useState([]);
+  const [loadingAvailableRequests, setLoadingAvailableRequests] = useState(true);
+  const [selectedRequestForOffer, setSelectedRequestForOffer] = useState(null);
+  const [requestOfferMessage, setRequestOfferMessage] = useState("");
+  const [requestOfferPrice, setRequestOfferPrice] = useState("");
+  const [requestOfferCurrency, setRequestOfferCurrency] = useState("USD");
+  const [requestOfferDeliveryDays, setRequestOfferDeliveryDays] = useState("");
+  const [requestOfferRevisions, setRequestOfferRevisions] = useState("1");
+  const [submittingRequestOffer, setSubmittingRequestOffer] = useState(false);
+  const [requestOfferMessageText, setRequestOfferMessageText] = useState("");
+  
   const [serviceAnalytics, setServiceAnalytics] = useState([]);
   const [loadingServiceAnalytics, setLoadingServiceAnalytics] = useState(true);
 
   useEffect(() => {
-    if (profile) {
-      setProfileHeadline(profile.headline || "");
-      setProfileBio(profile.bio || "");
-      setProfileCountry(profile.country || "");
-      setProfileSkills(profile.skills || "");
-      setProfileLanguages(profile.languages || "");
-      setProfileWebsiteUrl(profile.website_url || "");
+    function syncProfileFormFields() {
+      if (profile) {
+        setProfileHeadline(profile.headline || "");
+        setProfileBio(profile.bio || "");
+        setProfileCountry(profile.country || "");
+        setProfileSkills(profile.skills || "");
+        setProfileLanguages(profile.languages || "");
+        setProfileWebsiteUrl(profile.website_url || "");
+      }
     }
+    syncProfileFormFields();
   }, [profile]);
 
-  async function fetchServiceAnalytics(currentOffers) {
+  const fetchServiceAnalytics = useCallback(async (currentOffers) => {
     if (!user || !currentOffers || currentOffers.length === 0) {
       setServiceAnalytics([]);
       setLoadingServiceAnalytics(false);
@@ -1821,9 +2696,9 @@ function SellerDashboardPage() {
 
     setServiceAnalytics(analyticsRows);
     setLoadingServiceAnalytics(false);
-  }
+  }, [user]);
 
-  async function fetchMyOffers() {
+  const fetchMyOffers = useCallback(async () => {
     if (!user) {
       setLoadingOffers(false);
       setLoadingServiceAnalytics(false);
@@ -1846,9 +2721,9 @@ function SellerDashboardPage() {
     }
 
     setLoadingOffers(false);
-  }
+  }, [user, fetchServiceAnalytics]);
 
-  async function fetchMyCustomOffers() {
+  const fetchMyCustomOffers = useCallback(async () => {
     if (!user) {
       setLoadingCustomOffers(false);
       return;
@@ -1865,9 +2740,9 @@ function SellerDashboardPage() {
     }
 
     setLoadingCustomOffers(false);
-  }
+  }, [user]);
 
-  async function fetchSellerOrders() {
+  const fetchSellerOrders = useCallback(async () => {
     if (!user) {
       setLoadingSellerOrders(false);
       return;
@@ -1884,9 +2759,9 @@ function SellerDashboardPage() {
     }
 
     setLoadingSellerOrders(false);
-  }
+  }, [user]);
 
-  async function fetchSellerPayoutOrders() {
+  const fetchSellerPayoutOrders = useCallback(async () => {
     if (!user) {
       setLoadingSellerPayouts(false);
       return;
@@ -1904,9 +2779,9 @@ function SellerDashboardPage() {
     }
 
     setLoadingSellerPayouts(false);
-  }
+  }, [user]);
 
-  async function fetchSellerReviews() {
+  const fetchSellerReviews = useCallback(async () => {
     if (!user) {
       setLoadingSellerReviews(false);
       return;
@@ -1923,9 +2798,9 @@ function SellerDashboardPage() {
     }
 
     setLoadingSellerReviews(false);
-  }
+  }, [user]);
 
-  async function fetchSellerVerification() {
+  const fetchSellerVerification = useCallback(async () => {
     if (!user) {
       setLoadingVerification(false);
       return;
@@ -1944,9 +2819,9 @@ function SellerDashboardPage() {
     }
 
     setLoadingVerification(false);
-  }
+  }, [user]);
 
-  async function fetchServiceDrafts() {
+  const fetchServiceDrafts = useCallback(async () => {
     if (!user) {
       setLoadingServiceDrafts(false);
       return;
@@ -1965,17 +2840,115 @@ function SellerDashboardPage() {
     }
 
     setLoadingServiceDrafts(false);
+  }, [user]);
+
+  const fetchAvailableRequests = useCallback(async () => {
+    if (!user) {
+      setAvailableRequests([]);
+      setLoadingAvailableRequests(false);
+      return;
+    }
+
+    setLoadingAvailableRequests(true);
+
+    const { data, error } = await supabase
+      .from("project_requests")
+      .select("*")
+      .in("status", ["open", "active", "posted"])
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setErrorText(error.message);
+      setAvailableRequests([]);
+    } else {
+      setAvailableRequests(data || []);
+    }
+
+    setLoadingAvailableRequests(false);
+  }, [user]);
+
+  function openSellerOfferForm(request) {
+    setSelectedRequestForOffer(request);
+    setRequestOfferMessage("");
+    setRequestOfferPrice("");
+    setRequestOfferCurrency(request.currency || "USD");
+    setRequestOfferDeliveryDays("");
+    setRequestOfferRevisions("1");
+    setRequestOfferMessageText("");
+    setErrorText("");
+  }
+
+  async function handleSellerOfferSubmit(event) {
+    event.preventDefault();
+
+    if (!user || !selectedRequestForOffer) {
+      return;
+    }
+
+    if (isSuspended(profile)) {
+      setErrorText("Your account is suspended. This action is not allowed.");
+      return;
+    }
+
+    setSubmittingRequestOffer(true);
+    setRequestOfferMessageText("");
+    setErrorText("");
+
+    const { error } = await supabase.from("custom_offers").insert({
+      project_request_id: selectedRequestForOffer.id,
+      buyer_id: selectedRequestForOffer.buyer_id,
+      seller_id: user.id,
+      message: requestOfferMessage,
+      price: Number(requestOfferPrice),
+      currency: requestOfferCurrency,
+      delivery_days: Number(requestOfferDeliveryDays),
+      revisions: Number(requestOfferRevisions),
+      status: "pending",
+    });
+
+    if (error) {
+      setErrorText(error.message);
+      setSubmittingRequestOffer(false);
+      return;
+    }
+
+    await sendNotification({
+      userId: selectedRequestForOffer.buyer_id,
+      type: "new_offer",
+      title: "New offer received",
+      message: "A seller has sent an offer for your project request.",
+      link: "/buyer-dashboard",
+    });
+
+    setRequestOfferMessageText("Custom Offer sent successfully.");
+    setSelectedRequestForOffer(null);
+    setSubmittingRequestOffer(false);
+    await fetchAvailableRequests();
   }
 
   useEffect(() => {
-    fetchMyOffers();
-    fetchMyCustomOffers();
-    fetchSellerOrders();
-    fetchSellerPayoutOrders();
-    fetchSellerReviews();
-    fetchSellerVerification();
-    fetchServiceDrafts();
-  }, [user]);
+    function loadSellerDashboard() {
+      fetchMyOffers();
+      fetchMyCustomOffers();
+      fetchSellerOrders();
+      fetchSellerPayoutOrders();
+      fetchSellerReviews();
+      fetchSellerVerification();
+      fetchServiceDrafts();
+      fetchAvailableRequests();
+    }
+    loadSellerDashboard();
+  }, [
+    user,
+    fetchMyOffers,
+    fetchMyCustomOffers,
+    fetchSellerOrders,
+    fetchSellerPayoutOrders,
+    fetchSellerReviews,
+    fetchSellerVerification,
+    fetchServiceDrafts,
+    fetchAvailableRequests,
+  ]);
 
   async function deleteServiceDraft(draftId) {
     const confirmed = window.confirm("Delete this draft?");
@@ -2203,6 +3176,81 @@ function SellerDashboardPage() {
         </Link>
       </div>
 
+      <div className="mt-8 flex gap-3 overflow-x-auto pb-2">
+        {sellerSections.map((section) => (
+          <button
+            key={section.id}
+            type="button"
+            onClick={() => setActiveSellerSection(section.id)}
+            className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold ${
+              activeSellerSection === section.id
+                ? "bg-primary text-white"
+                : "border border-slate-300 bg-white text-slate-700"
+            }`}
+          >
+            {section.label}
+          </button>
+        ))}
+      </div>
+
+      {activeSellerSection === "overview" && (
+        <div className="mt-8 rounded-3xl border bg-white p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-xl font-bold">Overview</h2>
+              <p className="mt-2 text-muted">
+                Quick seller summary for offers, orders, payouts, and review activity.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link
+                to="/create-service"
+                className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white"
+              >
+                Create Service
+              </Link>
+              <Link
+                to="/messages"
+                className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-700"
+              >
+                Open Messages
+              </Link>
+              <Link
+                to="/support"
+                className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-700"
+              >
+                Contact Support
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-3xl border bg-slate-50 p-5">
+              <p className="text-sm font-semibold text-slate-500">Service Offers</p>
+              <p className="mt-3 text-2xl font-bold">{myOffers.length}</p>
+              <p className="mt-2 text-sm text-slate-600">Live and draft offers combined.</p>
+            </div>
+            <div className="rounded-3xl border bg-slate-50 p-5">
+              <p className="text-sm font-semibold text-slate-500">Active Orders</p>
+              <p className="mt-3 text-2xl font-bold">{sellerOrders.filter((order) => order.status === "active").length}</p>
+              <p className="mt-2 text-sm text-slate-600">Orders currently in progress.</p>
+            </div>
+            <div className="rounded-3xl border bg-slate-50 p-5">
+              <p className="text-sm font-semibold text-slate-500">Pending Payout</p>
+              <p className="mt-3 text-2xl font-bold">${pendingPayoutUsd}</p>
+              <p className="mt-2 text-sm text-slate-600">Amount waiting for payout.</p>
+            </div>
+            <div className="rounded-3xl border bg-slate-50 p-5">
+              <p className="text-sm font-semibold text-slate-500">Average Rating</p>
+              <p className="mt-3 text-2xl font-bold">{averageSellerRating} / 5</p>
+              <p className="mt-2 text-sm text-slate-600">Based on buyer reviews.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeSellerSection === "verification" && (
       <div className="mt-8 rounded-3xl border bg-white p-6">
         <h2 className="text-xl font-bold">Seller Verification</h2>
         <p className="mt-2 text-muted">
@@ -2323,7 +3371,9 @@ function SellerDashboardPage() {
           </form>
         )}
       </div>
+      )}
 
+      {activeSellerSection === "profile" && (
       <div className="mt-8 rounded-3xl border bg-white p-6">
         <h2 className="text-xl font-bold">Edit Seller Profile</h2>
         <p className="mt-2 text-muted">
@@ -2419,7 +3469,9 @@ function SellerDashboardPage() {
           </button>
         </form>
       </div>
+      )}
 
+      {activeSellerSection === "drafts" && (
       <div className="mt-8 rounded-3xl border bg-white p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -2492,6 +3544,165 @@ function SellerDashboardPage() {
           </div>
         )}
       </div>
+      )}
+
+      {activeSellerSection === "requests" && (
+      <div className="mt-8 rounded-3xl border bg-white p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-xl font-bold">Available Buyer Requests</h2>
+            <p className="mt-2 text-muted">
+              Open buyer requests that sellers can respond to with a Custom Offer.
+            </p>
+          </div>
+        </div>
+
+        {loadingAvailableRequests ? (
+          <p className="mt-6 text-muted">Loading buyer requests...</p>
+        ) : availableRequests.length === 0 ? (
+          <div className="mt-6 rounded-2xl bg-slate-50 p-6">
+            <p className="font-semibold">No buyer requests available right now.</p>
+            <p className="mt-2 text-sm text-muted">
+              Buyers post requests and sellers can send offers from this dashboard.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-6 grid gap-4">
+            {availableRequests.map((request) => (
+              <article key={request.id} className="rounded-2xl border p-5">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-primary">{request.category}</p>
+                    <h3 className="mt-1 text-lg font-bold">{request.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-700">{request.description}</p>
+
+                    <div className="mt-4 grid gap-2 text-sm text-slate-700 md:grid-cols-3">
+                      <p>
+                        <strong>Budget:</strong> {request.budget_min || request.budget_max
+                          ? `${request.currency} ${request.budget_min || "0"} - ${request.budget_max || "Open"}`
+                          : "Not specified"}
+                      </p>
+                      <p>
+                        <strong>Deadline:</strong> {request.deadline_date || "Not specified"}
+                      </p>
+                      <p>
+                        <strong>Posted:</strong> {new Date(request.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => openSellerOfferForm(request)}
+                    disabled={isSuspended(profile)}
+                    className="mt-4 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white disabled:opacity-60 md:mt-0"
+                  >
+                    Send Offer
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+      )}
+
+      {selectedRequestForOffer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-5">
+          <form
+            onSubmit={handleSellerOfferSubmit}
+            className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-xl"
+          >
+            <div className="flex items-start justify-between gap-5">
+              <div>
+                <h2 className="text-2xl font-bold">Send Offer to Buyer</h2>
+                <p className="mt-2 text-sm text-muted">
+                  Request: {selectedRequestForOffer.title}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedRequestForOffer(null)}
+                className="rounded-full border px-4 py-2 text-sm font-semibold"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-4">
+              <textarea
+                className="min-h-32 rounded-xl border px-4 py-3 outline-none"
+                placeholder="Write your message to the buyer. Explain scope, delivery, and what you need to start."
+                value={requestOfferMessage}
+                onChange={(event) => setRequestOfferMessage(event.target.value)}
+                required
+              />
+
+              <div className="grid gap-4 md:grid-cols-4">
+                <input
+                  className="rounded-xl border px-4 py-3 outline-none"
+                  placeholder="Offer price"
+                  type="number"
+                  min="5"
+                  value={requestOfferPrice}
+                  onChange={(event) => setRequestOfferPrice(event.target.value)}
+                  required
+                />
+
+                <select
+                  className="rounded-xl border px-4 py-3 outline-none"
+                  value={requestOfferCurrency}
+                  onChange={(event) => setRequestOfferCurrency(event.target.value)}
+                >
+                  <option value="USD">USD</option>
+                  <option value="GBP">GBP</option>
+                  <option value="EUR">EUR</option>
+                  <option value="KES">KES</option>
+                  <option value="CAD">CAD</option>
+                  <option value="AUD">AUD</option>
+                  <option value="ZAR">ZAR</option>
+                  <option value="NGN">NGN</option>
+                  <option value="AED">AED</option>
+                  <option value="INR">INR</option>
+                </select>
+
+                <input
+                  className="rounded-xl border px-4 py-3 outline-none"
+                  placeholder="Delivery days"
+                  type="number"
+                  min="1"
+                  value={requestOfferDeliveryDays}
+                  onChange={(event) => setRequestOfferDeliveryDays(event.target.value)}
+                  required
+                />
+
+                <input
+                  className="rounded-xl border px-4 py-3 outline-none"
+                  placeholder="Revisions"
+                  type="number"
+                  min="0"
+                  value={requestOfferRevisions}
+                  onChange={(event) => setRequestOfferRevisions(event.target.value)}
+                  required
+                />
+              </div>
+
+              <button
+                disabled={submittingRequestOffer || isSuspended(profile)}
+                className="rounded-full bg-primary px-6 py-3 font-semibold text-white disabled:opacity-60"
+              >
+                {submittingRequestOffer ? "Sending..." : "Send Offer"}
+              </button>
+
+              {requestOfferMessageText && (
+                <p className="rounded-xl bg-green-50 p-4 text-sm font-medium text-green-700">
+                  {requestOfferMessageText}
+                </p>
+              )}
+            </div>
+          </form>
+        </div>
+      )}
 
       <div className="mt-8 rounded-3xl border bg-white p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -2893,10 +4104,20 @@ function BuyerDashboardPage() {
   const [myOrders, setMyOrders] = useState([]);
   const [savedServices, setSavedServices] = useState([]);
   const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [activeBuyerSection, setActiveBuyerSection] = useState("overview");
+  const buyerSections = [
+    { id: "overview", label: "Overview" },
+    { id: "requests", label: "Project Requests" },
+    { id: "offers", label: "Incoming Offers" },
+    { id: "orders", label: "Active Orders" },
+    { id: "saved", label: "Saved Services" },
+    { id: "messages", label: "Messages" },
+    { id: "support", label: "Support" },
+  ];
   const [message, setMessage] = useState("");
   const [errorText, setErrorText] = useState("");
 
-  async function fetchBuyerDashboard() {
+  const fetchBuyerDashboard = useCallback(async () => {
     if (!user) {
       setLoadingDashboard(false);
       return;
@@ -2957,11 +4178,14 @@ const { data: ordersData, error: ordersError } = await supabase
     }
 
     setLoadingDashboard(false);
-  }
+  }, [user]);
 
   useEffect(() => {
-    fetchBuyerDashboard();
-  }, [user]);
+    function loadBuyerDashboard() {
+      fetchBuyerDashboard();
+    }
+    loadBuyerDashboard();
+  }, [fetchBuyerDashboard]);
 
   async function acceptOffer(offer) {
   if (isSuspended(profile)) {
@@ -3044,7 +4268,7 @@ const { data: ordersData, error: ordersError } = await supabase
     })
     .eq("project_request_id", offer.project_request_id)
     .neq("id", offer.id)
-    .eq("status", "submitted");
+    .eq("status", "pending");
 await sendNotification({
   userId: offer.seller_id,
   type: "new_order",
@@ -3143,6 +4367,87 @@ await sendNotification({
         <p className="mt-8 text-muted">Loading Buyer Dashboard...</p>
       ) : (
         <>
+          <div className="mt-8 flex gap-3 overflow-x-auto pb-2">
+            {buyerSections.map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                onClick={() => setActiveBuyerSection(section.id)}
+                className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold ${
+                  activeBuyerSection === section.id
+                    ? "bg-primary text-white"
+                    : "border border-slate-300 bg-white text-slate-700"
+                }`}
+              >
+                {section.label}
+              </button>
+            ))}
+          </div>
+
+          {activeBuyerSection === "overview" && (
+            <div className="mt-8 rounded-3xl border bg-white p-6">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 className="text-xl font-bold">Overview</h2>
+                  <p className="mt-2 text-muted">
+                    Quick summary of your latest buyer activity without scrolling through the whole dashboard.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <Link
+                    to="/project-requests"
+                    className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white"
+                  >
+                    Post New Request
+                  </Link>
+                  <Link
+                    to="/services"
+                    className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-700"
+                  >
+                    Browse Services
+                  </Link>
+                  <Link
+                    to="/messages"
+                    className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-700"
+                  >
+                    Open Messages
+                  </Link>
+                  <Link
+                    to="/support"
+                    className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-700"
+                  >
+                    Contact Support
+                  </Link>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-3xl border bg-slate-50 p-5">
+                  <p className="text-sm font-semibold text-slate-500">Project Requests</p>
+                  <p className="mt-3 text-2xl font-bold">{myRequests.length}</p>
+                  <p className="mt-2 text-sm text-slate-600">Latest request: {myRequests[0]?.title || "None yet"}</p>
+                </div>
+                <div className="rounded-3xl border bg-slate-50 p-5">
+                  <p className="text-sm font-semibold text-slate-500">Incoming Offers</p>
+                  <p className="mt-3 text-2xl font-bold">{incomingOffers.length}</p>
+                  <p className="mt-2 text-sm text-slate-600">Latest offer: {incomingOffers[0]?.message ? incomingOffers[0].message.substring(0, 50) : "None yet"}</p>
+                </div>
+                <div className="rounded-3xl border bg-slate-50 p-5">
+                  <p className="text-sm font-semibold text-slate-500">Active Orders</p>
+                  <p className="mt-3 text-2xl font-bold">{myOrders.filter((order) => order.status === "active").length}</p>
+                  <p className="mt-2 text-sm text-slate-600">Latest order: {myOrders[0]?.title || "None yet"}</p>
+                </div>
+                <div className="rounded-3xl border bg-slate-50 p-5">
+                  <p className="text-sm font-semibold text-slate-500">Saved Services</p>
+                  <p className="mt-3 text-2xl font-bold">{savedServices.length}</p>
+                  <p className="mt-2 text-sm text-slate-600">Latest saved: {savedServices[0]?.service_offers?.title || "None yet"}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeBuyerSection === "requests" && (
           <div className="mt-8 rounded-3xl border bg-white p-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
@@ -3203,7 +4508,9 @@ await sendNotification({
               </div>
             )}
           </div>
+          )}
 
+          {activeBuyerSection === "saved" && (
           <div className="mt-8 rounded-3xl border bg-white p-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
@@ -3276,7 +4583,9 @@ await sendNotification({
               </div>
             )}
           </div>
+          )}
 
+          {activeBuyerSection === "offers" && (
           <div className="mt-8 rounded-3xl border bg-white p-6">
             <h2 className="text-xl font-bold">Incoming Custom Offers</h2>
             <p className="mt-2 text-muted">
@@ -3327,7 +4636,7 @@ await sendNotification({
                         </div>
 
                         <div className="flex min-w-44 flex-col gap-3">
-                          {offer.status === "submitted" ? (
+                          {offer.status === "pending" ? (
                             <>
                               <button
                                 onClick={() => acceptOffer(offer)}
@@ -3358,6 +4667,9 @@ await sendNotification({
               </div>
             )}
           </div>
+          )}
+
+          {activeBuyerSection === "orders" && (
           <div className="mt-8 rounded-3xl border bg-white p-6">
   <h2 className="text-xl font-bold">Your Orders</h2>
   <p className="mt-2 text-muted">
@@ -3416,6 +4728,49 @@ await sendNotification({
     </div>
   )}
 </div>
+          )}
+
+          {activeBuyerSection === "messages" && (
+          <div className="mt-8 rounded-3xl border bg-white p-6">
+            <h2 className="text-xl font-bold">Messages</h2>
+            <p className="mt-2 text-muted">View and reply to conversations with sellers.</p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                to="/messages"
+                className="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white"
+              >
+                Open Messages
+              </Link>
+              <Link
+                to="/support"
+                className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700"
+              >
+                Contact Support
+              </Link>
+            </div>
+          </div>
+          )}
+
+          {activeBuyerSection === "support" && (
+          <div className="mt-8 rounded-3xl border bg-white p-6">
+            <h2 className="text-xl font-bold">Support</h2>
+            <p className="mt-2 text-muted">Need help? Reach out to our support team.</p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                to="/support"
+                className="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white"
+              >
+                Contact Support
+              </Link>
+              <Link
+                to="/messages"
+                className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700"
+              >
+                Open Messages
+              </Link>
+            </div>
+          </div>
+          )}
         </>
       )}
     </DashboardShell>
@@ -3449,7 +4804,7 @@ function AdminPage() {
   const [errorText, setErrorText] = useState("");
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
-async function fetchPendingOffers() {
+const fetchPendingOffers = useCallback(async () => {
   if (!user || profile?.role !== "admin") {
     setLoadingOffers(false);
     return;
@@ -3472,9 +4827,9 @@ async function fetchPendingOffers() {
   }
 
   setLoadingOffers(false);
-}
+}, [user, profile]);
 
-  async function fetchPendingPayments() {
+  const fetchPendingPayments = useCallback(async () => {
     if (!user || profile?.role !== "admin") {
       setLoadingPayments(false);
       return;
@@ -3493,9 +4848,9 @@ async function fetchPendingOffers() {
     }
 
     setLoadingPayments(false);
-  }
+  }, [user, profile]);
 
-  async function fetchPendingPayouts() {
+  const fetchPendingPayouts = useCallback(async () => {
     if (!user || profile?.role !== "admin") {
       setLoadingPayouts(false);
       return;
@@ -3514,9 +4869,9 @@ async function fetchPendingOffers() {
     }
 
     setLoadingPayouts(false);
-  }
+  }, [user, profile]);
 
-  async function fetchPendingVerifications() {
+  const fetchPendingVerifications = useCallback(async () => {
     if (!user || profile?.role !== "admin") {
       setLoadingVerifications(false);
       return;
@@ -3535,7 +4890,7 @@ async function fetchPendingOffers() {
     }
 
     setLoadingVerifications(false);
-  }
+  }, [user, profile]);
 
   function makeSlugFromName(name) {
     return name
@@ -3545,7 +4900,7 @@ async function fetchPendingOffers() {
       .replace(/^-+|-+$/g, "");
   }
 
-  async function fetchAdminCategories() {
+  const fetchAdminCategories = useCallback(async () => {
     if (!user || profile?.role !== "admin") {
       setLoadingCategories(false);
       return;
@@ -3563,9 +4918,9 @@ async function fetchPendingOffers() {
     }
 
     setLoadingCategories(false);
-  }
+  }, [user, profile]);
 
-  async function fetchAdminUsers() {
+  const fetchAdminUsers = useCallback(async () => {
     if (!user || profile?.role !== "admin") {
       setLoadingUsers(false);
       return;
@@ -3585,9 +4940,9 @@ async function fetchPendingOffers() {
     }
 
     setLoadingUsers(false);
-  }
+  }, [user, profile]);
 
-  async function fetchAdminDisputes() {
+  const fetchAdminDisputes = useCallback(async () => {
     if (!user || profile?.role !== "admin") {
       setLoadingDisputes(false);
       return;
@@ -3606,9 +4961,9 @@ async function fetchPendingOffers() {
     }
 
     setLoadingDisputes(false);
-  }
+  }, [user, profile]);
 
-  async function fetchSupportTickets() {
+  const fetchSupportTickets = useCallback(async () => {
     if (!user || profile?.role !== "admin") {
       setLoadingSupportTickets(false);
       return;
@@ -3627,7 +4982,7 @@ async function fetchPendingOffers() {
     }
 
     setLoadingSupportTickets(false);
-  }
+  }, [user, profile]);
 
   async function markSupportInProgress(ticket) {
     setActionLoadingId(ticket.id);
@@ -3723,23 +5078,37 @@ async function fetchPendingOffers() {
   }
 
   useEffect(() => {
-    if (!user || !profile?.role) return;
+    function loadAdminDashboard() {
+      if (!user || !profile?.role) return;
 
-    if (profile.role !== "admin") {
-      setLoadingOffers(false);
-      return;
+      if (profile.role !== "admin") {
+        setLoadingOffers(false);
+        return;
+      }
+
+      fetchPendingOffers();
+
+      if (typeof fetchPendingPayments === "function") fetchPendingPayments();
+      if (typeof fetchPendingPayouts === "function") fetchPendingPayouts();
+      if (typeof fetchPendingVerifications === "function") fetchPendingVerifications();
+      if (typeof fetchAdminDisputes === "function") fetchAdminDisputes();
+      if (typeof fetchSupportTickets === "function") fetchSupportTickets();
+      if (typeof fetchAdminCategories === "function") fetchAdminCategories();
+      if (typeof fetchAdminUsers === "function") fetchAdminUsers();
     }
-
-    fetchPendingOffers();
-
-    if (typeof fetchPendingPayments === "function") fetchPendingPayments();
-    if (typeof fetchPendingPayouts === "function") fetchPendingPayouts();
-    if (typeof fetchPendingVerifications === "function") fetchPendingVerifications();
-    if (typeof fetchAdminDisputes === "function") fetchAdminDisputes();
-    if (typeof fetchSupportTickets === "function") fetchSupportTickets();
-    if (typeof fetchAdminCategories === "function") fetchAdminCategories();
-    if (typeof fetchAdminUsers === "function") fetchAdminUsers();
-  }, [user?.id, profile?.role]);
+    loadAdminDashboard();
+  }, [
+    user,
+    profile,
+    fetchPendingOffers,
+    fetchPendingPayments,
+    fetchPendingPayouts,
+    fetchPendingVerifications,
+    fetchAdminDisputes,
+    fetchSupportTickets,
+    fetchAdminCategories,
+    fetchAdminUsers,
+  ]);
 
 async function approveServiceOffer(offer) {
   setActionLoadingId(offer.id);
@@ -5091,7 +6460,7 @@ function MessagesPage() {
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [errorText, setErrorText] = useState("");
 
-  async function fetchConversations() {
+  const fetchConversations = useCallback(async () => {
     if (!user) {
       setConversations([]);
       setLoadingConversations(false);
@@ -5115,11 +6484,14 @@ function MessagesPage() {
     }
 
     setLoadingConversations(false);
-  }
+  }, [user]);
 
   useEffect(() => {
-    fetchConversations();
-  }, [user]);
+    function loadConversations() {
+      fetchConversations();
+    }
+    loadConversations();
+  }, [fetchConversations]);
 
   if (!user) {
     return (
@@ -5207,7 +6579,7 @@ function ConversationPage() {
   const [newMessage, setNewMessage] = useState("");
   const [errorText, setErrorText] = useState("");
 
-  async function fetchConversation() {
+  const fetchConversation = useCallback(async () => {
     if (!id) {
       setConversation(null);
       setLoadingConversation(false);
@@ -5228,9 +6600,9 @@ function ConversationPage() {
     }
 
     setLoadingConversation(false);
-  }
+  }, [id]);
 
-  async function fetchMessages() {
+  const fetchMessages = useCallback(async () => {
     if (!id) {
       setMessages([]);
       return;
@@ -5245,12 +6617,15 @@ function ConversationPage() {
     if (!error) {
       setMessages(data || []);
     }
-  }
+  }, [id]);
 
   useEffect(() => {
-    fetchConversation();
-    fetchMessages();
-  }, [id, user]);
+    function loadConversation() {
+      fetchConversation();
+      fetchMessages();
+    }
+    loadConversation();
+  }, [id, user, fetchConversation, fetchMessages]);
 
   async function handleSendMessage(event) {
     event.preventDefault();
@@ -5334,7 +6709,6 @@ function ConversationPage() {
     );
   }
 
-  const recipientId = user.id === conversation.buyer_id ? conversation.seller_id : conversation.buyer_id;
   const roleLabel = user.id === conversation.buyer_id ? "Buyer" : "Seller";
 
   return (
@@ -5418,7 +6792,7 @@ function SupportPage() {
   const [errorText, setErrorText] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  async function fetchUserTickets() {
+  const fetchUserTickets = useCallback(async () => {
     if (!user) {
       setTickets([]);
       setLoadingTickets(false);
@@ -5442,11 +6816,14 @@ function SupportPage() {
     }
 
     setLoadingTickets(false);
-  }
+  }, [user]);
 
   useEffect(() => {
-    fetchUserTickets();
-  }, [user]);
+    function loadUserTickets() {
+      fetchUserTickets();
+    }
+    loadUserTickets();
+  }, [fetchUserTickets]);
 
   async function handleSubmitTicket(event) {
     event.preventDefault();
@@ -5701,8 +7078,10 @@ function CreateServicePage() {
   const [currency, setCurrency] = useState("USD");
 
   const [serviceImageFile, setServiceImageFile] = useState(null);
+  const [serviceImagePreviewUrl, setServiceImagePreviewUrl] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [galleryImageFiles, setGalleryImageFiles] = useState([]);
+  const [galleryImagePreviews, setGalleryImagePreviews] = useState([]);
   const [videoUrl, setVideoUrl] = useState("");
 
   const [seoTitle, setSeoTitle] = useState("");
@@ -5756,6 +7135,51 @@ function CreateServicePage() {
 
     fetchCategories();
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (serviceImagePreviewUrl) {
+        URL.revokeObjectURL(serviceImagePreviewUrl);
+      }
+    };
+  }, [serviceImagePreviewUrl]);
+
+  useEffect(() => {
+    return () => {
+      galleryImagePreviews.forEach((preview) => URL.revokeObjectURL(preview.previewUrl));
+    };
+  }, [galleryImagePreviews]);
+
+  function formatUploadError(error) {
+    if (error?.message?.toLowerCase().includes("bucket not found")) {
+      return "Image storage is not configured yet. Create a public Supabase storage bucket named service-media, then try uploading again.";
+    }
+
+    return error?.message || "The image could not be uploaded. Please try again.";
+  }
+
+  function handleServiceImageChange(event) {
+    const file = event.target.files?.[0] || null;
+    setServiceImageFile(file);
+    setServiceImagePreviewUrl(file ? URL.createObjectURL(file) : "");
+  }
+
+  function handleGalleryImagesChange(event) {
+    const files = Array.from(event.target.files || []);
+    setGalleryImageFiles(files);
+    setGalleryImagePreviews(
+      files.map((file) => ({
+        id: `${file.name}-${file.lastModified}-${file.size}`,
+        name: file.name,
+        previewUrl: URL.createObjectURL(file),
+      }))
+    );
+  }
+
+  function removeGalleryImage(indexToRemove) {
+    setGalleryImageFiles((current) => current.filter((_, index) => index !== indexToRemove));
+    setGalleryImagePreviews((current) => current.filter((_, index) => index !== indexToRemove));
+  }
 
   function updateFaq(index, field, value) {
     setFaqs((current) =>
@@ -5903,7 +7327,7 @@ function CreateServicePage() {
     const draftName = title.trim() || seoTitle.trim() || "Untitled Service Draft";
 
     let error;
-    let savedDraft = null;
+    let savedDraft;
 
     if (loadedDraftId) {
       const result = await supabase
@@ -5955,17 +7379,21 @@ function CreateServicePage() {
     const filePath = `${user.id}/${pathPrefix}-${Date.now()}-${safeFileName}`;
 
     const { error: uploadError } = await supabase.storage
-      .from("service-images")
+      .from("service-media")
       .upload(filePath, file);
 
     if (uploadError) {
-      return { publicUrl: null, filePath: null, error: uploadError };
+      return {
+        publicUrl: null,
+        filePath: null,
+        error: uploadError,
+      };
     }
 
-    const { data } = supabase.storage.from("service-images").getPublicUrl(filePath);
+    const { data } = supabase.storage.from("service-media").getPublicUrl(filePath);
 
     return {
-      publicUrl: data.publicUrl,
+      publicUrl: data?.publicUrl || null,
       filePath,
       error: null,
     };
@@ -6000,7 +7428,7 @@ function CreateServicePage() {
       const uploadResult = await uploadServiceImage(serviceImageFile, "main");
 
       if (uploadResult.error) {
-        setErrorText(uploadResult.error.message);
+        setErrorText(formatUploadError(uploadResult.error));
         setLoading(false);
         return;
       }
@@ -6101,7 +7529,7 @@ function CreateServicePage() {
       );
 
       if (uploadResult.error) {
-        setErrorText(uploadResult.error.message);
+        setErrorText(formatUploadError(uploadResult.error));
         setLoading(false);
         return;
       }
@@ -6285,12 +7713,27 @@ function CreateServicePage() {
 
             <div>
               <p className="mb-2 text-sm font-semibold">Main service image</p>
-              <input
-                className="w-full rounded-xl border bg-white px-4 py-3 outline-none"
-                type="file"
-                accept="image/*"
-                onChange={(event) => setServiceImageFile(event.target.files?.[0] || null)}
-              />
+              <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center transition hover:border-primary hover:bg-teal-50">
+                {serviceImagePreviewUrl ? (
+                  <img
+                    src={serviceImagePreviewUrl}
+                    alt="Main service preview"
+                    className="h-64 w-full rounded-xl object-cover"
+                  />
+                ) : (
+                  <span className="flex flex-col items-center gap-3 text-sm text-slate-600">
+                    <ImagePlus className="text-primary" size={32} />
+                    <span className="font-semibold text-slate-900">Choose a main image</span>
+                    <span>Show buyers the finished work, sample, plan, or result.</span>
+                  </span>
+                )}
+                <input
+                  className="sr-only"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleServiceImageChange}
+                />
+              </label>
             </div>
 
             <input
@@ -6302,16 +7745,43 @@ function CreateServicePage() {
 
             <div>
               <p className="mb-2 text-sm font-semibold">Gallery images</p>
-              <input
-                className="w-full rounded-xl border bg-white px-4 py-3 outline-none"
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(event) => setGalleryImageFiles(Array.from(event.target.files || []))}
-              />
-              <p className="mt-2 text-xs text-muted">
-                Upload extra images showing samples, drawings, results, or process screenshots.
-              </p>
+              <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center transition hover:border-primary hover:bg-teal-50">
+                <ImagePlus className="text-primary" size={28} />
+                <span className="mt-3 text-sm font-semibold text-slate-900">Add gallery images</span>
+                <span className="mt-1 text-sm text-slate-600">Upload samples, drawings, results, or process screenshots.</span>
+                <input
+                  className="sr-only"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleGalleryImagesChange}
+                />
+              </label>
+
+              {galleryImagePreviews.length > 0 && (
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {galleryImagePreviews.map((preview, index) => (
+                    <div key={preview.id} className="relative overflow-hidden rounded-2xl border bg-white">
+                      <img
+                        src={preview.previewUrl}
+                        alt={`Gallery preview ${index + 1}`}
+                        className="h-40 w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeGalleryImage(index)}
+                        className="absolute right-2 top-2 rounded-full bg-white/90 p-1 text-slate-700 shadow-sm hover:bg-white"
+                        aria-label="Remove gallery image"
+                      >
+                        <X size={16} />
+                      </button>
+                      <p className="truncate px-3 py-2 text-xs font-medium text-slate-600">
+                        {preview.name}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <input
@@ -6463,7 +7933,6 @@ function EditServicePage() {
   const [galleryImageFiles, setGalleryImageFiles] = useState([]);
   const [videoUrl, setVideoUrl] = useState("");
   const [currentMedia, setCurrentMedia] = useState([]);
-  const [currentFaqs, setCurrentFaqs] = useState([]);
   const [packages, setPackages] = useState([
     { tier: "basic", title: "Basic", description: "", price: 0, delivery_days: 1, revisions: 0 },
     { tier: "standard", title: "Standard", description: "", price: 0, delivery_days: 1, revisions: 0 },
@@ -6577,7 +8046,6 @@ function EditServicePage() {
         .order("display_order", { ascending: true });
 
       if (faqsData && faqsData.length > 0) {
-        setCurrentFaqs(faqsData);
         setFaqs(
           faqsData.map((faq) => ({
             question: faq.question,
@@ -6644,16 +8112,16 @@ function EditServicePage() {
       const storagePath = `${user.id}/${id}/main-${Date.now()}-${safeFileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from("service-images")
+        .from("service-media")
         .upload(storagePath, serviceImageFile);
 
       if (uploadError) {
-        setErrorText(uploadError.message);
+        setErrorText(uploadError.message || "Service image upload failed.");
         setSaving(false);
         return;
       }
 
-      const { data: publicUrlData } = supabase.storage.from("service-images").getPublicUrl(storagePath);
+      const { data: publicUrlData } = supabase.storage.from("service-media").getPublicUrl(storagePath);
       finalImageUrl = publicUrlData.publicUrl;
     }
 
@@ -6709,11 +8177,11 @@ function EditServicePage() {
         const storagePath = `${user.id}/${id}/gallery-${Date.now()}-${safeFileName}`;
 
         const { error: uploadError } = await supabase.storage
-          .from("service-images")
+          .from("service-media")
           .upload(storagePath, file);
 
         if (!uploadError) {
-          const { data: publicUrlData } = supabase.storage.from("service-images").getPublicUrl(storagePath);
+          const { data: publicUrlData } = supabase.storage.from("service-media").getPublicUrl(storagePath);
 
           const nextDisplayOrder =
             Math.max(...currentMedia.filter((m) => m.is_primary !== true).map((m) => m.display_order || 0), 1) + index + 1;
@@ -7115,7 +8583,10 @@ function ProjectRequestsPage() {
   }
 
   useEffect(() => {
-    fetchProjectRequests();
+    function loadProjectRequests() {
+      fetchProjectRequests();
+    }
+    loadProjectRequests();
   }, []);
 
   useEffect(() => {
@@ -7233,7 +8704,7 @@ function ProjectRequestsPage() {
       currency: offerCurrency,
       delivery_days: Number(offerDeliveryDays),
       revisions: Number(offerRevisions),
-      status: "submitted",
+      status: "pending",
     });
 
     if (error) {
@@ -7241,6 +8712,14 @@ function ProjectRequestsPage() {
       setSubmittingOffer(false);
       return;
     }
+
+    await sendNotification({
+      userId: selectedRequest.buyer_id,
+      type: "new_offer",
+      title: "New offer received",
+      message: "A seller has sent an offer for your project request.",
+      link: "/buyer-dashboard",
+    });
 
     setSelectedRequest(null);
     setOfferMessage("");
@@ -7622,7 +9101,7 @@ function OrderDetailsPage() {
   const [disputeDescription, setDisputeDescription] = useState("");
   const [submittingDispute, setSubmittingDispute] = useState(false);
 
-  async function fetchOrder() {
+  const fetchOrder = useCallback(async () => {
     if (!user) {
       setLoadingOrder(false);
       return;
@@ -7645,9 +9124,9 @@ function OrderDetailsPage() {
     }
 
     setLoadingOrder(false);
-  }
+  }, [user, id]);
 
-  async function fetchOrderMessages() {
+  const fetchOrderMessages = useCallback(async () => {
     if (!user || !id) {
       setLoadingMessages(false);
       return;
@@ -7666,9 +9145,9 @@ function OrderDetailsPage() {
     }
 
     setLoadingMessages(false);
-  }
+  }, [user, id]);
 
-  async function fetchOrderFiles() {
+  const fetchOrderFiles = useCallback(async () => {
     if (!user || !id) {
       setLoadingFiles(false);
       return;
@@ -7687,9 +9166,9 @@ function OrderDetailsPage() {
     }
 
     setLoadingFiles(false);
-  }
+  }, [user, id]);
 
-  async function fetchOrderReview() {
+  const fetchOrderReview = useCallback(async () => {
     if (!id) {
       setLoadingReview(false);
       return;
@@ -7708,9 +9187,9 @@ function OrderDetailsPage() {
     }
 
     setLoadingReview(false);
-  }
+  }, [id]);
 
-  async function fetchOrderRequirements() {
+  const fetchOrderRequirements = useCallback(async () => {
     if (!id) {
       setLoadingRequirements(false);
       return;
@@ -7729,9 +9208,9 @@ function OrderDetailsPage() {
     }
 
     setLoadingRequirements(false);
-  }
+  }, [id]);
 
-  async function fetchOrderDisputes() {
+  const fetchOrderDisputes = useCallback(async () => {
     if (!id) {
       setLoadingDisputes(false);
       return;
@@ -7750,7 +9229,7 @@ function OrderDetailsPage() {
     }
 
     setLoadingDisputes(false);
-  }
+  }, [id]);
 
   async function handleSubmitRequirements(event) {
     event.preventDefault();
@@ -7799,7 +9278,7 @@ function OrderDetailsPage() {
     setMessage("");
     setErrorText("");
 
-    const { data: createdDispute, error } = await supabase
+    const { error } = await supabase
       .from("order_disputes")
       .insert({
         order_id: order.id,
@@ -7861,13 +9340,25 @@ function OrderDetailsPage() {
   }
 
   useEffect(() => {
-    fetchOrder();
-    fetchOrderMessages();
-    fetchOrderFiles();
-    fetchOrderReview();
-    fetchOrderRequirements();
-    fetchOrderDisputes();
-  }, [id, user]);
+    function loadOrderDetails() {
+      fetchOrder();
+      fetchOrderMessages();
+      fetchOrderFiles();
+      fetchOrderReview();
+      fetchOrderRequirements();
+      fetchOrderDisputes();
+    }
+    loadOrderDetails();
+  }, [
+    id,
+    user,
+    fetchOrder,
+    fetchOrderMessages,
+    fetchOrderFiles,
+    fetchOrderReview,
+    fetchOrderRequirements,
+    fetchOrderDisputes,
+  ]);
 
   async function updateOrderStatus(newStatus, extraFields = {}) {
     if (!order) return false;
@@ -8934,12 +10425,37 @@ function OrderInfoCard({ title, value }) {
 }
 
 function DashboardShell({ title, children }) {
+  const { profile } = useAuth();
+  const profileIncomplete = isProfileIncomplete(profile);
+
   return (
     <main className="mx-auto max-w-7xl px-5 py-12">
       <h1 className="text-4xl font-bold">{title}</h1>
       <p className="mt-3 text-muted">
         Manage your marketplace activity from one place.
       </p>
+
+      {profileIncomplete && (
+        <div className="mt-6 rounded-3xl border border-orange-200 bg-orange-50 p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-orange-900">
+                Complete your profile to build trust and use KaziHub properly.
+              </h2>
+              <p className="mt-2 text-sm text-orange-700">
+                Add missing profile details now to unlock full marketplace access and improve buyers'/sellers' confidence.
+              </p>
+            </div>
+            <Link
+              to="/profile-setup"
+              className="rounded-full bg-orange-600 px-5 py-3 text-sm font-semibold text-white"
+            >
+              Complete Profile
+            </Link>
+          </div>
+        </div>
+      )}
+
       <div className="mt-8">{children}</div>
     </main>
   );
@@ -8956,7 +10472,6 @@ function Stat({ title, value }) {
 
 function SellerProfilePage() {
   const { id } = useParams();
-  const { user } = useAuth();
 
   const [sellerProfile, setSellerProfile] = useState(null);
   const [sellerServices, setSellerServices] = useState([]);
@@ -9297,6 +10812,26 @@ function SellerProfilePage() {
   );
 }
 
+function NotFoundPage() {
+  return (
+    <main className="mx-auto max-w-3xl px-5 py-16">
+      <div className="rounded-3xl border bg-white p-8 text-center shadow-sm">
+        <p className="font-semibold text-primary">404</p>
+        <h1 className="mt-2 text-3xl font-bold">Page Not Found</h1>
+        <p className="mt-3 text-muted">
+          The page you are looking for does not exist or may have been moved.
+        </p>
+        <Link
+          to="/"
+          className="mt-6 inline-block rounded-full bg-primary px-6 py-3 font-semibold text-white"
+        >
+          Back to Home
+        </Link>
+      </div>
+    </main>
+  );
+}
+
 function Footer() {
   return (
     <footer className="border-t bg-white">
@@ -9557,6 +11092,10 @@ export default function App() {
         <Route path="/sellers/:id" element={<SellerProfilePage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/dashboard-redirect" element={<DashboardRedirectPage />} />
+        <Route path="/profile-setup" element={<ProfileSetupPage />} />
         <Route path="/seller-dashboard" element={<SellerDashboardPage />} />
         <Route path="/buyer-dashboard" element={<BuyerDashboardPage />} />
         <Route path="/admin" element={<AdminPage />} />
@@ -9566,13 +11105,13 @@ export default function App() {
         <Route path="/refund-policy" element={<RefundPolicyPage />} />
         <Route path="/payment-policy" element={<PaymentPolicyPage />} />
         <Route path="/create-service" element={<CreateServicePage />} />
-        <Route path="/create-service" element={<CreateServicePage />} />
         <Route path="/edit-service/:id" element={<EditServicePage />} />
         <Route path="/project-requests" element={<ProjectRequestsPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/orders/:id" element={<OrderDetailsPage />} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/messages/:id" element={<ConversationPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
       <Footer />
     </BrowserRouter>

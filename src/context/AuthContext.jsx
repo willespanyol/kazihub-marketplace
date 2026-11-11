@@ -1,7 +1,6 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-
-const AuthContext = createContext(null);
+import { AuthContext } from "./authContextInstance";
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -122,14 +121,4 @@ async function signIn({ email, password }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const value = useContext(AuthContext);
-
-  if (!value) {
-    throw new Error("useAuth must be used inside AuthProvider");
-  }
-
-  return value;
 }
