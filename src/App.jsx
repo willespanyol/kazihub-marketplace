@@ -178,7 +178,7 @@ const unreadNotificationCount = notifications.filter(
           ) : (
             <>
               <Link to="/services">Browse Services</Link>
-              <Link to="/categories/engineering-and-architecture">Categories</Link>
+              <Link to="/categories">Categories</Link>
               <Link to="/project-requests">Project Requests</Link>
               <Link to="/messages" className="inline-flex items-center gap-1"><MessageCircle size={16} /> Messages</Link>
               <Link to="/support">Support</Link>
@@ -346,7 +346,7 @@ function HomePage() {
         <div className="mx-auto grid max-w-7xl gap-10 px-5 py-20 lg:grid-cols-2 lg:items-center">
           <div>
             <p className="mb-4 inline-flex rounded-full bg-teal-50 px-4 py-2 text-sm font-semibold text-primary">
-              Engineering-first freelance marketplace
+              Find talent in every field
             </p>
 
             <h1 className="text-4xl font-bold tracking-tight text-dark md:text-6xl">
@@ -354,9 +354,9 @@ function HomePage() {
             </h1>
 
             <p className="mt-6 max-w-xl text-lg leading-8 text-muted">
-              KaziHub connects buyers with verified sellers offering engineering,
-              design, tech, creative, business, and AI services. Start with a fixed
-              Service Offer or post a Project Request.
+              Discover services from independent professionals in AI, technology, design,
+              marketing, writing, business, engineering, education, and more.
+              Explore a gig or post a custom project request.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -385,7 +385,7 @@ function HomePage() {
                 <input
                   className="w-full outline-none"
                   aria-label="Search marketplace services"
-                  placeholder="Search structural design, logo design, AI automation..."
+                  placeholder="Search AI agents, graphic design, marketing, websites..."
                   value={homeSearch}
                   onChange={(event) => setHomeSearch(event.target.value)}
                 />
@@ -422,12 +422,12 @@ function HomePage() {
           <FeatureCard
             icon={<ShieldCheck />}
             title="Instant live services"
-            text="Every Service Offer is reviewed before it appears publicly."
+            text="Sellers can publish complete gigs directly. Contact a seller before ordering."
           />
           <FeatureCard
             icon={<CreditCard />}
             title="Payments from day one"
-            text="Buyer payments, platform commission, and seller payouts are built into the system."
+            text="Choose a service, submit a payment reference and await KaziHub verification before work begins."
           />
           <FeatureCard
             icon={<Users />}
@@ -442,16 +442,21 @@ function HomePage() {
           <div>
             <h2 className="text-3xl font-bold">Popular categories</h2>
             <p className="mt-2 text-muted">
-              Engineering is prioritised, but the platform supports all major freelance services.
+              Explore AI, programming, creative work, business, marketing, writing, engineering and more.
             </p>
           </div>
-          <Link to="/services" className="hidden font-semibold text-primary md:block">
+          <Link to="/categories" className="hidden font-semibold text-primary md:block">
             View all
           </Link>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {pageCategories.slice(0, 8).map((category) => (
+          {[...pageCategories].sort((a,b) => {
+            const featured = ["AI Services","AI Agents & Workflow Automation","AI Chatbots & Assistants","Programming & Tech","Graphics & Design","Digital Marketing","Writing & Translation","Business","Video & Animation","Engineering & Architecture","Music & Audio","Education & Tutoring"];
+            const x = featured.indexOf(a.name);
+            const y = featured.indexOf(b.name);
+            return (x < 0 ? 100 + (a.display_order || 0) : x) - (y < 0 ? 100 + (b.display_order || 0) : y);
+          }).slice(0, 12).map((category) => (
             <Link
               key={category.name}
               to={`/categories/${category.slug || slugify(category.name)}`}
@@ -649,7 +654,7 @@ function ServicesPage() {
       <div className="mb-8">
         <h1 className="text-4xl font-bold">Browse Services</h1>
         <p className="mt-3 text-muted">
-          Find approved Service Offers from sellers across engineering, tech, design, business, and AI.
+          Find services from independent professionals across AI, technology, design, marketing, business, engineering and more.
         </p>
       </div>
 
@@ -859,6 +864,55 @@ function slugify(text) {
 
 function getCategoryFromSlug(slug) {
   return categories.find((category) => slugify(category.name) === slug);
+}
+
+function AllCategoriesPage() {
+  const [items, setItems] = useState(categories);
+  const [search, setSearch] = useState("");
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      const {data,error} = await supabase.from("marketplace_categories")
+        .select("name,slug,description,display_order,is_active")
+        .eq("is_active",true).order("display_order",{ascending:true});
+      if (active && !error && data?.length) setItems(data);
+    }
+    load();
+    return () => { active = false; };
+  }, []);
+  const ai = items.filter((item) => /(^AI\b|\bAI\b|prompt engineering)/i.test(item.name));
+  const other = items.filter((item) => !ai.includes(item));
+  const match = (item) => [item.name,item.description].some((x) => x?.toLowerCase().includes(search.toLowerCase()));
+  const renderCategory = (item) => (
+    <Link key={item.slug || slugify(item.name)} to={`/categories/${item.slug || slugify(item.name)}`}
+      className="block rounded-2xl border bg-white p-5 transition hover:border-primary hover:shadow-sm">
+      <h3 className="font-bold text-slate-900">{item.name}</h3>
+      <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>
+    </Link>
+  );
+  return (
+    <main className="mx-auto max-w-7xl px-5 py-12">
+      <h1 className="text-4xl font-bold">Explore all service categories</h1>
+      <p className="mt-3 text-muted">KaziHub connects buyers and freelancers across many industries and skills.</p>
+      <input className="mt-7 w-full rounded-xl border bg-white px-4 py-3"
+        value={search} onChange={(event) => setSearch(event.target.value)}
+        placeholder="Search categories, e.g. AI chatbot, logo design, SEO, coding..."
+        aria-label="Search service categories" />
+      {ai.some(match) && (
+        <section className="mt-10">
+          <h2 className="mb-5 text-2xl font-bold">Artificial Intelligence & AI Services</h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">{ai.filter(match).map(renderCategory)}</div>
+        </section>
+      )}
+      {other.some(match) && (
+        <section className="mt-10">
+          <h2 className="mb-5 text-2xl font-bold">All other services</h2>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">{other.filter(match).map(renderCategory)}</div>
+        </section>
+      )}
+      {!items.some(match) && <p className="mt-10 text-muted">No matching categories. Try a different search.</p>}
+    </main>
+  );
 }
 
 function CategoryPage() {
@@ -10884,7 +10938,7 @@ function Footer() {
     <footer className="border-t bg-white">
       <div className="mx-auto max-w-7xl px-5 py-8 text-sm text-muted">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <p>© {new Date().getFullYear()} KaziHub. Freelance marketplace for engineering and professional services.</p>
+          <p>© {new Date().getFullYear()} KaziHub. Freelance services across AI, creative, business, technology and more.</p>
           <div className="flex flex-wrap gap-4 text-sm">
             <Link to="/terms" className="text-slate-600 hover:text-primary">Terms</Link>
             <Link to="/privacy" className="text-slate-600 hover:text-primary">Privacy</Link>
@@ -10904,7 +10958,7 @@ function TermsPage() {
       <div className="rounded-3xl border bg-white p-8 shadow-sm">
         <h1 className="text-3xl font-bold">Terms of Service</h1>
         <p className="mt-4 text-muted">
-          KaziHub is a marketplace that connects buyers with independent engineering service sellers. Sellers are responsible for delivering the services they offer, while buyers are responsible for providing accurate requirements and clear instructions.
+          KaziHub is a marketplace that connects buyers with independent service sellers across many professional fields. Sellers are responsible for delivering the services they offer, while buyers are responsible for providing accurate requirements and clear instructions.
         </p>
 
         <div className="mt-8 space-y-6 text-slate-700">
@@ -11134,6 +11188,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/services" element={<ServicesPage />} />
+        <Route path="/categories" element={<AllCategoriesPage />} />
         <Route path="/categories/:slug" element={<CategoryPage />} />
         <Route path="/services/:id" element={<ServiceDetailsPage />} />
         <Route path="/sellers/:id" element={<SellerProfilePage />} />
