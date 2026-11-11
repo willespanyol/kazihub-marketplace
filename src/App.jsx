@@ -7991,9 +7991,6 @@ function EditServicePage() {
   const [currency, setCurrency] = useState("USD");
   const [imageUrl, setImageUrl] = useState("");
   const [serviceImageFile, setServiceImageFile] = useState(null);
-  const [seoTitle, setSeoTitle] = useState("");
-  const [seoDescription, setSeoDescription] = useState("");
-  const [tags, setTags] = useState("");
   const [galleryImageFiles, setGalleryImageFiles] = useState([]);
   const [videoUrl, setVideoUrl] = useState("");
   const [currentMedia, setCurrentMedia] = useState([]);
@@ -8001,11 +7998,6 @@ function EditServicePage() {
     { tier: "basic", title: "Basic", description: "", price: 0, delivery_days: 1, revisions: 0 },
     { tier: "standard", title: "Standard", description: "", price: 0, delivery_days: 1, revisions: 0 },
     { tier: "premium", title: "Premium", description: "", price: 0, delivery_days: 1, revisions: 0 },
-  ]);
-  const [faqs, setFaqs] = useState([
-    { question: "", answer: "" },
-    { question: "", answer: "" },
-    { question: "", answer: "" },
   ]);
   const [adminReviewNote, setAdminReviewNote] = useState("");
   const [saving, setSaving] = useState(false);
@@ -8063,9 +8055,6 @@ function EditServicePage() {
       setDescription(offerData.description || "");
       setCurrency(offerData.currency || "USD");
       setImageUrl(offerData.image_url || "");
-      setSeoTitle(offerData.seo_title || "");
-      setSeoDescription(offerData.seo_description || "");
-      setTags(offerData.tags || "");
       setAdminReviewNote(offerData.admin_review_note || "");
       setVideoUrl("");
 
@@ -8103,21 +8092,6 @@ function EditServicePage() {
         }
       }
 
-      const { data: faqsData } = await supabase
-        .from("service_offer_faqs")
-        .select("*")
-        .eq("service_offer_id", id)
-        .order("display_order", { ascending: true });
-
-      if (faqsData && faqsData.length > 0) {
-        setFaqs(
-          faqsData.map((faq) => ({
-            question: faq.question,
-            answer: faq.answer,
-          }))
-        );
-      }
-
       setLoading(false);
     }
 
@@ -8125,22 +8099,6 @@ function EditServicePage() {
       fetchServiceOffer();
     }
   }, [id, user, profile]);
-
-  function updateFaq(index, field, value) {
-    setFaqs((current) =>
-      current.map((faq, faqIndex) =>
-        faqIndex === index ? { ...faq, [field]: value } : faq
-      )
-    );
-  }
-
-  function addFaq() {
-    setFaqs((current) => [...current, { question: "", answer: "" }]);
-  }
-
-  function removeFaq(index) {
-    setFaqs((current) => current.filter((_, faqIndex) => faqIndex !== index));
-  }
 
   function updatePackage(tier, field, value) {
     setPackages((current) =>
@@ -8165,6 +8123,27 @@ function EditServicePage() {
       return;
     }
 
+    if (!title.trim() || !category || !description.trim() || !currency) {
+      setErrorText("Service title, category, description and currency are required.");
+      return;
+    }
+    if (!imageUrl && !serviceImageFile) {
+      setErrorText("A main gig photo is required.");
+      return;
+    }
+    if (serviceImageFile && (!serviceImageFile.type.startsWith("image/") || serviceImageFile.size > 8 * 1024 * 1024)) {
+      setErrorText("Choose a gig photo smaller than 8 MB.");
+      return;
+    }
+    if (packages.length !== 3 || !["basic","standard","premium"].every(tier => packages.some(pkg =>
+      pkg.tier === tier && pkg.title.trim() && pkg.description.trim() &&
+      Number.isFinite(Number(pkg.price)) && Number(pkg.price) >= 5 &&
+      Number.isInteger(Number(pkg.delivery_days)) && Number(pkg.delivery_days) >= 1 &&
+      Number.isInteger(Number(pkg.revisions)) && Number(pkg.revisions) >= 0
+    ))) {
+      setErrorText("Complete all three packages: name, description, price (at least 5), delivery days and revisions.");
+      return;
+    }
     setSaving(true);
     setErrorText("");
     setMessage("");
@@ -8189,17 +8168,18 @@ function EditServicePage() {
       finalImageUrl = publicUrlData.publicUrl;
     }
 
+    const basicPackage = packages.find((pkg) => pkg.tier === "basic");
     const { error: updateError } = await supabase
       .from("service_offers")
       .update({
-        title,
+        title: title.trim(),
         category,
-        description,
+        description: description.trim(),
         currency,
-        image_url: finalImageUrl || null,
-        seo_title: seoTitle.trim() || null,
-        seo_description: seoDescription.trim() || null,
-        tags: tags.trim() || null,
+        image_url: finalImageUrl,
+        basic_price: Number(basicPackage.price),
+        delivery_days: Number(basicPackage.delivery_days),
+        revisions: Number(basicPackage.revisions),
         status: "pending_review",
       })
       .eq("id", id);
@@ -8289,28 +8269,15 @@ function EditServicePage() {
       }
     }
 
-    await supabase.from("service_offer_faqs").delete().eq("service_offer_id", id);
-
-    const validFaqs = faqs.filter((faq) => faq.question.trim() && faq.answer.trim());
-    if (validFaqs.length > 0) {
-      const faqRows = validFaqs.map((faq, index) => ({
-        service_offer_id: id,
-        seller_id: user.id,
-        question: faq.question.trim(),
-        answer: faq.answer.trim(),
-        display_order: index + 1,
-      }));
-
-      const { error: faqError } = await supabase.from("service_offer_faqs").insert(faqRows);
-
-      if (faqError) {
-        setErrorText(faqError.message);
-        setSaving(false);
-        return;
-      }
+    const { error: publishError } = await supabase.from("service_offers")
+      .update({ status: "approved", updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (publishError) {
+      setErrorText(`Your changes were saved but the gig could not be published: ${publishError.message}`);
+      setSaving(false);
+      return;
     }
-
-    setMessage("Service Offer updated and live immediately after saving.");
+    setMessage("Gig updated and published successfully.");
     setSaving(false);
     setTimeout(() => {
       navigate("/seller-dashboard");
@@ -8363,14 +8330,7 @@ function EditServicePage() {
     <main className="mx-auto max-w-4xl px-5 py-12">
       <form onSubmit={handleSave} className="rounded-3xl border bg-white p-8 shadow-sm">
         <h1 className="text-3xl font-bold">Edit Service Offer</h1>
-        <p className="mt-2 text-muted">Changes will go live immediately after saving.</p>
-
-        {adminReviewNote && (
-          <div className="mb-6 mt-6 rounded-2xl bg-yellow-50 p-5 text-yellow-800">
-            <p className="font-bold">Admin review note</p>
-            <p className="mt-2 text-sm">{adminReviewNote}</p>
-          </div>
-        )}
+        <p className="mt-2 text-muted">All three packages and a cover image are required. Changes publish immediately after successful saving.</p>
 
         {profile && profile.role !== "seller" && profile?.role !== "admin" && (
           <p className="mt-6 rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700">
@@ -8435,7 +8395,7 @@ function EditServicePage() {
           </div>
 
           <div className="rounded-2xl bg-slate-100 p-6">
-            <h3 className="font-bold">Main Image</h3>
+            <h3 className="font-bold">Main gig photo <span className="text-red-600">*</span></h3>
             <p className="mt-1 text-sm text-muted">Current image URL: {imageUrl || "None"}</p>
             <input
               className="mt-4 w-full rounded-xl border bg-white px-4 py-3 outline-none"
@@ -8481,28 +8441,29 @@ function EditServicePage() {
                   <p className="text-sm font-semibold text-slate-700">{pkg.tier.toUpperCase()}</p>
                   <input
                     className="mt-2 w-full rounded-lg border px-3 py-2 outline-none"
-                    placeholder="Title"
+                    aria-label={`${pkg.tier} Package name`} placeholder="Title"
                     value={pkg.title}
                     onChange={(e) => updatePackage(pkg.tier, "title", e.target.value)}
                   />
                   <textarea
                     className="mt-2 w-full min-h-16 rounded-lg border px-3 py-2 outline-none"
-                    placeholder="Description"
+                    aria-label={`${pkg.tier} What's included`} placeholder="Description"
                     value={pkg.description}
                     onChange={(e) => updatePackage(pkg.tier, "description", e.target.value)}
                   />
                   <input
                     className="mt-2 w-full rounded-lg border px-3 py-2 outline-none"
                     type="number"
-                    placeholder="Price"
-                    min="0"
+                    aria-label={`${pkg.tier} Price`} placeholder="Price"
+                    min="5"
+                    step="0.01"
                     value={pkg.price}
                     onChange={(e) => updatePackage(pkg.tier, "price", e.target.value)}
                   />
                   <input
                     className="mt-2 w-full rounded-lg border px-3 py-2 outline-none"
                     type="number"
-                    placeholder="Delivery days"
+                    aria-label={`${pkg.tier} Delivery time (days)`} placeholder="Delivery days"
                     min="1"
                     value={pkg.delivery_days}
                     onChange={(e) => updatePackage(pkg.tier, "delivery_days", e.target.value)}
@@ -8510,7 +8471,7 @@ function EditServicePage() {
                   <input
                     className="mt-2 w-full rounded-lg border px-3 py-2 outline-none"
                     type="number"
-                    placeholder="Revisions"
+                    aria-label={`${pkg.tier} Included revisions`} placeholder="Revisions"
                     min="0"
                     value={pkg.revisions}
                     onChange={(e) => updatePackage(pkg.tier, "revisions", e.target.value)}
@@ -8518,68 +8479,6 @@ function EditServicePage() {
                 </div>
               ))}
             </div>
-          </div>
-
-          <div className="rounded-2xl bg-slate-100 p-6">
-            <h3 className="font-bold">SEO and Search Details</h3>
-            <div className="mt-4 grid gap-4">
-              <input
-                className="w-full rounded-xl border bg-white px-4 py-3 outline-none"
-                placeholder="SEO Title"
-                value={seoTitle}
-                onChange={(e) => setSeoTitle(e.target.value)}
-              />
-              <textarea
-                className="w-full min-h-20 rounded-xl border bg-white px-4 py-3 outline-none"
-                placeholder="SEO Description"
-                value={seoDescription}
-                onChange={(e) => setSeoDescription(e.target.value)}
-              />
-              <input
-                className="w-full rounded-xl border bg-white px-4 py-3 outline-none"
-                placeholder="Tags (comma separated)"
-                value={tags}
-                onChange={(e) => setTags(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-slate-100 p-6">
-            <h3 className="font-bold">Frequently Asked Questions</h3>
-            <div className="mt-4 grid gap-4">
-              {faqs.map((faq, index) => (
-                <div key={index} className="rounded-xl border bg-white p-4">
-                  <input
-                    className="w-full rounded-lg border px-3 py-2 outline-none"
-                    placeholder="Question"
-                    value={faq.question}
-                    onChange={(e) => updateFaq(index, "question", e.target.value)}
-                  />
-                  <textarea
-                    className="mt-2 w-full min-h-20 rounded-lg border px-3 py-2 outline-none"
-                    placeholder="Answer"
-                    value={faq.answer}
-                    onChange={(e) => updateFaq(index, "answer", e.target.value)}
-                  />
-                  {faqs.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeFaq(index)}
-                      className="mt-2 rounded-lg border border-red-300 px-3 py-2 text-sm font-semibold text-red-700"
-                    >
-                      Remove FAQ
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={addFaq}
-              className="mt-4 rounded-lg border border-primary px-4 py-2 text-sm font-semibold text-primary"
-            >
-              Add Another FAQ
-            </button>
           </div>
 
           {errorText && <p className="rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700">{errorText}</p>}
