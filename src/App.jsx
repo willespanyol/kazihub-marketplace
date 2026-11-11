@@ -2687,6 +2687,7 @@ function ProfileSetupPage() {
 function SellerDashboardPage() {
   const { user, profile } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [myOffers, setMyOffers] = useState([]);
   const [loadingOffers, setLoadingOffers] = useState(true);
@@ -3324,7 +3325,7 @@ function SellerDashboardPage() {
   }
 
   return (
-    <DashboardShell title="Seller Dashboard">
+    <DashboardShell title={activeSellerSection === "overview" ? "Seller Dashboard" : activeSellerSection === "payouts" ? "Earnings & Payouts" : sellerSections.find((item) => item.id === activeSellerSection)?.label || "Seller Dashboard"}>
       {activeSellerSection === "overview" && (
       <div className="grid gap-5 md:grid-cols-4">
         <Stat title="Published Gigs" value={myOffers.filter((offer) => offer.status === "approved").length} />
@@ -3358,22 +3359,32 @@ function SellerDashboardPage() {
       </div>
       )}
 
-      <div className="mt-8 flex gap-3 overflow-x-auto pb-2">
-        {sellerSections.map((section) => (
-          <button
-            key={section.id}
-            type="button"
-            onClick={() => setActiveSellerSection(section.id)}
-            className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold ${
-              activeSellerSection === section.id
-                ? "bg-primary text-white"
-                : "border border-slate-300 bg-white text-slate-700"
-            }`}
-          >
-            {section.label}
-          </button>
-        ))}
-      </div>
+      <nav aria-label="Seller sections" className="mt-8 space-y-3">
+        <div className="flex flex-wrap gap-2">
+          {sellerSections.filter((section) => ["overview","inbox","services","orders","payouts","reviews"].includes(section.id)).map((section) => (
+            <button key={section.id} type="button"
+              onClick={() => navigate(`/seller-dashboard?section=${section.id}`)}
+              aria-current={activeSellerSection === section.id ? "page" : undefined}
+              className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                activeSellerSection === section.id ? "bg-primary text-white" : "border border-slate-300 bg-white text-slate-700"
+              }`}>
+              {section.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2 border-t pt-3">
+          {sellerSections.filter((section) => !["overview","inbox","services","orders","payouts","reviews"].includes(section.id)).map((section) => (
+            <button key={section.id} type="button"
+              onClick={() => navigate(`/seller-dashboard?section=${section.id}`)}
+              aria-current={activeSellerSection === section.id ? "page" : undefined}
+              className={`rounded-full px-3 py-2 text-xs font-semibold ${
+                activeSellerSection === section.id ? "bg-primary text-white" : "border border-slate-300 bg-white text-slate-600"
+              }`}>
+              {section.label}
+            </button>
+          ))}
+        </div>
+      </nav>
 
       {activeSellerSection === "inbox" && (
         <section className="mt-8 rounded-3xl border bg-white p-6">
