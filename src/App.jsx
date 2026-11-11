@@ -2945,7 +2945,7 @@ function SellerDashboardPage() {
       currency: requestOfferCurrency,
       delivery_days: Number(requestOfferDeliveryDays),
       revisions: Number(requestOfferRevisions),
-      status: "pending",
+      status: "submitted",
     });
 
     if (error) {
@@ -4230,98 +4230,37 @@ const { data: ordersData, error: ordersError } = await supabase
   }, [fetchBuyerDashboard]);
 
   async function acceptOffer(offer) {
-  if (isSuspended(profile)) {
-    setErrorText("Your account is suspended. This action is not allowed.");
-    return;
-  }
-  setActionLoadingId(offer.id);
-  setMessage("");
-  setErrorText("");
+    if (isSuspended(profile)) {
+      setErrorText("Your account is suspended. This action is not allowed.");
+      return;
+    }
+    setActionLoadingId(offer.id);
+    setMessage("");
+    setErrorText("");
 
-  const relatedRequest = myRequests.find(
-    (request) => request.id === offer.project_request_id
-  );
+    // One transaction creates the unpaid order and accepts the offer.
+    // If any part fails, PostgreSQL rolls back all changes.
+    const { data: orderId, error } = await supabase.rpc("accept_custom_offer_order", {
+      p_offer_id: offer.id,
+    });
 
-  const platformFee = Math.round(Number(offer.price) * 20) / 100;
-  const sellerPayout = Math.round((Number(offer.price) - platformFee) * 100) / 100;
+    if (error || !orderId) {
+      setErrorText(error?.message || "Could not accept the offer. Please try again.");
+      setActionLoadingId(null);
+      return;
+    }
 
-  const { data: createdOrder, error: orderError } = await supabase
-  .from("orders")
-  .insert({
-    buyer_id: offer.buyer_id,
-    seller_id: offer.seller_id,
-    source: "custom_offer",
-    custom_offer_id: offer.id,
-    project_request_id: offer.project_request_id,
-    title: relatedRequest?.title || "Custom Offer Order",
-    description: offer.message,
-    price: Number(offer.price),
-    currency: offer.currency,
-    platform_fee: platformFee,
-    seller_payout: sellerPayout,
-    delivery_days: Number(offer.delivery_days),
-    revisions: Number(offer.revisions),
-    status: "payment_pending",
-    payment_status: "unpaid",
-    payment_method: "Remitly to M-Pesa",
-  })
-  .select()
-  .single();
-
-  if (orderError) {
-    setErrorText(orderError.message);
+    await sendNotification({
+      userId: offer.seller_id,
+      type: "new_order",
+      title: "New order created",
+      message: "A buyer accepted your Custom Offer. The order is waiting for manual payment verification.",
+      link: `/orders/${orderId}`,
+    });
+    setMessage("Custom Offer accepted. A payment-pending order has been created. Please complete payment to activate the order.");
+    await fetchBuyerDashboard();
     setActionLoadingId(null);
-    return;
   }
-
-  const { error: acceptError } = await supabase
-    .from("custom_offers")
-    .update({
-      status: "accepted",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", offer.id);
-
-  if (acceptError) {
-    setErrorText(acceptError.message);
-    setActionLoadingId(null);
-    return;
-  }
-
-  const { error: requestError } = await supabase
-    .from("project_requests")
-    .update({
-      status: "assigned",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", offer.project_request_id);
-
-  if (requestError) {
-    setErrorText(requestError.message);
-    setActionLoadingId(null);
-    return;
-  }
-
-  await supabase
-    .from("custom_offers")
-    .update({
-      status: "rejected",
-      updated_at: new Date().toISOString(),
-    })
-    .eq("project_request_id", offer.project_request_id)
-    .neq("id", offer.id)
-    .eq("status", "pending");
-await sendNotification({
-  userId: offer.seller_id,
-  type: "new_order",
-  title: "New order created",
-  message: "A buyer accepted your Custom Offer. The order is waiting for payment verification.",
-  link: `/orders/${createdOrder.id}`,
-});
-  setMessage("Custom Offer accepted. A payment-pending order has been created. Please complete payment to activate the order.");
-  await fetchBuyerDashboard();
-  setActionLoadingId(null);
-}
 
   async function rejectOffer(offerId) {
     if (isSuspended(profile)) {
@@ -4678,7 +4617,7 @@ await sendNotification({
                         </div>
 
                         <div className="flex min-w-44 flex-col gap-3">
-                          {offer.status === "pending" ? (
+                          {offer.status === "submitted" ? (
                             <>
                               <button
                                 onClick={() => acceptOffer(offer)}
@@ -8761,7 +8700,7 @@ function ProjectRequestsPage() {
       currency: offerCurrency,
       delivery_days: Number(offerDeliveryDays),
       revisions: Number(offerRevisions),
-      status: "pending",
+      status: "submitted",
     });
 
     if (error) {
