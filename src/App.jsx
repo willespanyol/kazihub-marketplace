@@ -1622,6 +1622,8 @@ function SignupPage() {
 
   async function signInWithGoogle() {
     setErrorText("");
+    // Preserve the selected buyer/seller role through the Google redirect.
+    window.localStorage.setItem("kazihub_signup_role", role);
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -2120,6 +2122,19 @@ function DashboardRedirectPage() {
       if (!profileData) {
         setErrorText("Your sign-in succeeded, but a KaziHub profile was not created. Contact support.");
         return;
+      }
+
+      const requestedRole = window.localStorage.getItem("kazihub_signup_role");
+      window.localStorage.removeItem("kazihub_signup_role");
+      if (requestedRole === "seller" && profileData.role === "buyer" && profileData.profile_completed !== true) {
+        const { error: roleError } = await supabase.from("profiles")
+          .update({ role: "seller" }).eq("id", user.id);
+        if (cancelled) return;
+        if (roleError) {
+          setErrorText(`Your Google account was created, but the seller role could not be assigned: ${roleError.message}`);
+          return;
+        }
+        profileData.role = "seller";
       }
 
       if (profileData.role === "admin") {
@@ -8178,7 +8193,7 @@ function EditServicePage() {
         seo_title: seoTitle.trim() || null,
         seo_description: seoDescription.trim() || null,
         tags: tags.trim() || null,
-        status: "approved",
+        status: "pending_review",
       })
       .eq("id", id);
 
