@@ -1644,14 +1644,18 @@ function SignupPage() {
     setErrorText("");
 
     try {
-      await signUp({
+      const result = await signUp({
         fullName,
         email,
         password,
         role,
       });
 
-      navigate("/profile-setup");
+      if (result.session) {
+        navigate("/profile-setup");
+      } else {
+        setMessage("Account created. Check your email for a confirmation link, then sign in to complete your profile.");
+      }
     } catch (error) {
       setErrorText(error.message);
     } finally {
@@ -2064,18 +2068,28 @@ function DashboardRedirectPage() {
   const [errorText, setErrorText] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     async function redirect() {
-      const { data, error } = await supabase.auth.getSession();
+      const urlParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const oauthError = urlParams.get("error_description") || hashParams.get("error_description")
+        || urlParams.get("error") || hashParams.get("error");
+      if (oauthError) {
+        setErrorText(oauthError);
+        return;
+      }
 
+      // Supabase initializes the OAuth session from the callback URL.
+      const { data, error } = await supabase.auth.getSession();
+      if (cancelled) return;
       if (error) {
         setErrorText(error.message);
         return;
       }
 
       const user = data.session?.user;
-
       if (!user) {
-        navigate("/login");
+        setErrorText("No active session was returned after sign-in. Please try again.");
         return;
       }
 
@@ -2083,31 +2097,30 @@ function DashboardRedirectPage() {
         .from("profiles")
         .select("*")
         .eq("id", user.id)
-        .single();
-
+        .maybeSingle();
+      if (cancelled) return;
       if (profileError) {
-        setErrorText(profileError.message);
+        setErrorText(`Could not load your profile: ${profileError.message}`);
+        return;
+      }
+      if (!profileData) {
+        setErrorText("Your sign-in succeeded, but a KaziHub profile was not created. Contact support.");
         return;
       }
 
-      if (profileData?.role === "admin") {
-        navigate("/admin");
-        return;
-      }
-
-      if (isProfileIncomplete(profileData)) {
-        navigate("/profile-setup");
-        return;
-      }
-
-      if (profileData?.role === "seller") {
-        navigate("/seller-dashboard");
+      if (profileData.role === "admin") {
+        navigate("/admin", { replace: true });
+      } else if (isProfileIncomplete(profileData)) {
+        navigate("/profile-setup", { replace: true });
+      } else if (profileData.role === "seller") {
+        navigate("/seller-dashboard", { replace: true });
       } else {
-        navigate("/buyer-dashboard");
+        navigate("/buyer-dashboard", { replace: true });
       }
     }
 
     redirect();
+    return () => { cancelled = true; };
   }, [navigate]);
 
   return (
