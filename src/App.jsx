@@ -2724,7 +2724,7 @@ function SellerDashboardPage() {
   const [profileMessage, setProfileMessage] = useState("");
   const [profileError, setProfileError] = useState("");
   const [activeSellerSection, setActiveSellerSection] = useState(() =>
-    new URLSearchParams(window.location.search).get("section") || "overview"
+    new URLSearchParams(window.location.search).get("section") || "inbox"
   );
   const [sellerInbox, setSellerInbox] = useState([]);
   const [sellerInboxUnread, setSellerInboxUnread] = useState({});
@@ -2732,7 +2732,7 @@ function SellerDashboardPage() {
 
   useEffect(() => {
     const requested = new URLSearchParams(location.search).get("section");
-    setActiveSellerSection(requested || "overview");
+    setActiveSellerSection(requested || "inbox");
   }, [location.search]);
   const sellerSections = [
     { id: "overview", label: "Overview" },
@@ -5910,7 +5910,7 @@ async function cancelOrderFromDispute(dispute) {
   return (
     <DashboardShell title="Admin Dashboard">
       <div className="grid gap-5 md:grid-cols-5">
-        <Stat title="Pending Services" value={pendingOffers.length} />
+
         <Stat title="Pending Payments" value={pendingPayments.length} />
         <Stat title="Pending Payouts" value={pendingPayouts.length} />
         <Stat title="Open Disputes" value={adminDisputes.length} />
@@ -5918,86 +5918,6 @@ async function cancelOrderFromDispute(dispute) {
         <Stat title="Support Tickets" value={supportTickets.length} />
         <Stat title="Categories" value={adminCategories.length} />
         <Stat title="Users" value={adminUsers.length} />
-      </div>
-
-      <div className="mt-8 rounded-3xl border bg-white p-6">
-        <h2 className="text-xl font-bold">Service Offer Approval Queue</h2>
-        <p className="mt-2 text-muted">
-          Review seller Service Offers before they appear publicly on the marketplace.
-        </p>
-
-        {errorText && (
-          <p className="mt-5 rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700">
-            {errorText}
-          </p>
-        )}
-
-        {loadingOffers ? (
-          <p className="mt-6 text-muted">Loading pending Service Offers...</p>
-        ) : pendingOffers.length === 0 ? (
-          <div className="mt-6 rounded-2xl bg-slate-50 p-6">
-            <p className="font-semibold">No pending Service Offers.</p>
-            <p className="mt-2 text-sm text-muted">
-              New seller submissions will appear here.
-            </p>
-          </div>
-        ) : (
-          <div className="mt-6 grid gap-5">
-            {pendingOffers.map((offer) => (
-              <div key={offer.id} className="rounded-2xl border p-5">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-primary">{offer.category}</p>
-                    <h3 className="mt-1 text-lg font-bold">{offer.title}</h3>
-                    <p className="mt-2 text-sm leading-6 text-muted">
-                      {offer.description}
-                    </p>
-
-                    <div className="mt-4 grid gap-3 text-sm md:grid-cols-4">
-                      <p>
-                        <strong>Price:</strong> {offer.currency}{" "}
-                        {Number(offer.basic_price).toFixed(2)}
-                      </p>
-                      <p>
-                        <strong>Delivery:</strong> {offer.delivery_days} days
-                      </p>
-                      <p>
-                        <strong>Revisions:</strong> {offer.revisions}
-                      </p>
-                      <p>
-                        <strong>Status:</strong> {offer.status.replace("_", " ")}
-                      </p>
-                    </div>
-
-                    {offer.admin_review_note && (
-                      <p className="mt-3 rounded-xl bg-yellow-50 p-3 text-xs font-medium text-yellow-700">
-                        <strong>Previous admin note:</strong> {offer.admin_review_note}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex min-w-44 flex-col gap-3">
-                    <button
-                      onClick={() => approveServiceOffer(offer)}
-                      disabled={actionLoadingId === offer.id}
-                      className="rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
-                    >
-                      {actionLoadingId === offer.id ? "Working..." : "Approve"}
-                    </button>
-
-                    <button
-                      onClick={() => rejectServiceOffer(offer)}
-                      disabled={actionLoadingId === offer.id}
-                      className="rounded-full border border-red-200 px-5 py-3 text-sm font-semibold text-red-700 disabled:opacity-60"
-                    >
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="mt-8 rounded-3xl border bg-white p-6">
