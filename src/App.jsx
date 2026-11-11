@@ -300,6 +300,8 @@ function AccountStatusBanner() {
 }
 
 function HomePage() {
+  const navigate = useNavigate();
+  const [homeSearch, setHomeSearch] = useState("");
   const [pageCategories, setPageCategories] = useState(categories);
 
   useEffect(() => {
@@ -355,13 +357,20 @@ function HomePage() {
 
           <div className="rounded-3xl bg-slate-100 p-5">
             <div className="rounded-2xl bg-white p-5 shadow-sm">
-              <div className="flex items-center gap-3 rounded-2xl border p-4">
+              <form onSubmit={(event) => {
+                event.preventDefault();
+                navigate(`/services?q=${encodeURIComponent(homeSearch.trim())}`);
+              }} className="flex items-center gap-3 rounded-2xl border p-4">
                 <Search className="text-primary" />
                 <input
                   className="w-full outline-none"
+                  aria-label="Search marketplace services"
                   placeholder="Search structural design, logo design, AI automation..."
+                  value={homeSearch}
+                  onChange={(event) => setHomeSearch(event.target.value)}
                 />
-              </div>
+                <button type="submit" className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white">Search</button>
+              </form>
 
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 {services.map((service) => (
@@ -449,16 +458,21 @@ function FeatureCard({ icon, title, text }) {
 function ServicesPage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [approvedOffers, setApprovedOffers] = useState([]);
   const [loadingOffers, setLoadingOffers] = useState(true);
   const [errorText, setErrorText] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(() => new URLSearchParams(window.location.search).get("q") || "");
   const [selectedCategory, setSelectedCategory] = useState("All categories");
   const [pageCategories, setPageCategories] = useState(categories);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [maxDeliveryDays, setMaxDeliveryDays] = useState("");
   const [sortBy, setSortBy] = useState("recommended");
+
+  useEffect(() => {
+    setSearchTerm(new URLSearchParams(location.search).get("q") || "");
+  }, [location.search]);
   const [savedServiceIds, setSavedServiceIds] = useState([]);
 
   const fetchSavedServices = useCallback(async () => {
@@ -1034,8 +1048,8 @@ function ServiceDetailsPage() {
     setOrderError("");
 
     const price = Number(packageToBuy.price);
-    const platformFee = price * 0.2;
-    const sellerPayout = price * 0.8;
+    const platformFee = Math.round(price * 20) / 100;
+    const sellerPayout = Math.round((price - platformFee) * 100) / 100;
 
     const { data: createdOrder, error } = await supabase
       .from("orders")
@@ -4213,8 +4227,8 @@ const { data: ordersData, error: ordersError } = await supabase
     (request) => request.id === offer.project_request_id
   );
 
-  const platformFee = Number(offer.price) * 0.2;
-  const sellerPayout = Number(offer.price) * 0.8;
+  const platformFee = Math.round(Number(offer.price) * 20) / 100;
+  const sellerPayout = Math.round((Number(offer.price) - platformFee) * 100) / 100;
 
   const { data: createdOrder, error: orderError } = await supabase
   .from("orders")
@@ -7465,7 +7479,7 @@ function CreateServicePage() {
         seo_title: seoTitle.trim() || null,
         seo_description: seoDescription.trim() || null,
         tags: tags.trim() || null,
-        status: "approved",
+        status: "pending_review",
       })
       .select()
       .single();
@@ -7613,6 +7627,21 @@ function CreateServicePage() {
         .eq("id", loadedDraftId);
     }
 
+    const { data: admins } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("role", "admin");
+
+    for (const admin of admins || []) {
+      await sendNotification({
+        userId: admin.id,
+        type: "service_offer_pending",
+        title: "Service offer awaiting review",
+        message: "A seller submitted a new service offer for approval.",
+        link: "/admin",
+      });
+    }
+
     setLoading(false);
     navigate("/seller-dashboard");
   }
@@ -7641,7 +7670,7 @@ function CreateServicePage() {
       <form onSubmit={handleSubmit} className="rounded-3xl border bg-white p-8 shadow-sm">
         <h1 className="text-3xl font-bold">Create a Service Offer</h1>
         <p className="mt-2 text-muted">
-          Add your service details, packages, gallery, SEO fields, and FAQs. Your Service Offer will go live immediately after submission.
+          Add your service details, packages, gallery, SEO fields, and FAQs. Your Service Offer will be submitted for admin review. It will appear publicly after approval.
         </p>
 
         {profile && profile.role !== "seller" && (
@@ -9047,29 +9076,17 @@ function CheckoutPage() {
   return (
     <main className="mx-auto max-w-3xl px-5 py-12">
       <div className="rounded-3xl border bg-white p-8 shadow-sm">
-        <h1 className="text-3xl font-bold">Checkout</h1>
-        <p className="mt-2 text-muted">
-          Payment integration will connect here using Stripe Connect.
+        <h1 className="text-3xl font-bold">Manual Payment Checkout</h1>
+        <p className="mt-3 text-muted">
+          Choose a service and its package to create an order. Each order has its own amount, currency and manual payment instructions. No card payment is collected on this page.
         </p>
-
-        <div className="mt-8 rounded-2xl bg-slate-50 p-5">
-          <div className="flex justify-between">
-            <span>Service price</span>
-            <strong>$150.00</strong>
-          </div>
-          <div className="mt-3 flex justify-between">
-            <span>Platform commission</span>
-            <strong>20%</strong>
-          </div>
-          <div className="mt-3 flex justify-between">
-            <span>Seller payout after completion</span>
-            <strong>$120.00</strong>
-          </div>
+        <p className="mt-4 text-sm text-slate-700">
+          After making payment to the verified KaziHub payment destination, submit your transaction reference on the order page. Work starts only after an administrator verifies receipt.
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link to="/services" className="rounded-full bg-primary px-6 py-3 font-semibold text-white">Browse Services</Link>
+          <Link to="/payment-policy" className="rounded-full border border-slate-300 px-6 py-3 font-semibold text-slate-700">Payment instructions</Link>
         </div>
-
-        <button className="mt-6 w-full rounded-full bg-primary px-6 py-3 font-semibold text-white">
-          Pay Securely
-        </button>
       </div>
     </main>
   );
