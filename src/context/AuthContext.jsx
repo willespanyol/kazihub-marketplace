@@ -101,6 +101,13 @@ async function signIn({ email, password }) {
   };
 }
 
+  async function refreshProfile() {
+    if (!user) return null;
+    const latest = await fetchProfile(user.id);
+    setProfile(latest);
+    return latest;
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
     setUser(null);
@@ -116,6 +123,7 @@ async function signIn({ email, password }) {
         signUp,
         signIn,
         signOut,
+        refreshProfile,
       }}
     >
       {children}

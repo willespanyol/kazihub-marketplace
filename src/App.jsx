@@ -2171,7 +2171,7 @@ function DashboardRedirectPage() {
 
 function ProfileSetupPage() {
   const navigate = useNavigate();
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, refreshProfile } = useAuth();
 
   const [profileData, setProfileData] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -2353,6 +2353,7 @@ function ProfileSetupPage() {
       : "/buyer-dashboard";
 
     setMessage("Profile saved successfully. Redirecting...");
+    await refreshProfile();
     navigate(redirectPath);
   }
 
