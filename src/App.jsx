@@ -7214,6 +7214,10 @@ function CreateServicePage() {
   const [currency, setCurrency] = useState("USD");
 
   const [serviceImageFile, setServiceImageFile] = useState(null);
+  const [coverUpload, setCoverUpload] = useState(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [coverUploadStatus, setCoverUploadStatus] = useState("");
+  const coverSelectionSequence = useRef(0);
   const [serviceImagePreviewUrl, setServiceImagePreviewUrl] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [galleryImageFiles, setGalleryImageFiles] = useState([]);
@@ -7277,33 +7281,83 @@ function CreateServicePage() {
   }, [galleryImagePreviews]);
 
   function formatUploadError(error) {
-    if (error?.message?.toLowerCase().includes("bucket not found")) {
-      return "Image storage is not configured yet. Create a public Supabase storage bucket named service-media, then try uploading again.";
+    const reason = String(error?.message || "Unknown upload error");
+    if (/bucket not found/i.test(reason)) {
+      return "The KaziHub service-media storage bucket is unavailable. Contact KaziHub support.";
     }
-
-    return error?.message || "The image could not be uploaded. Please try again.";
+    if (/row.level.security|403|unauthorized|not authorized|permission denied/i.test(reason)) {
+      return "Photo upload was denied by storage permissions. Sign out and sign back in, then retry. If it persists, report this message to support: " + reason;
+    }
+    if (/mime|content.type|unsupported media|415/i.test(reason)) {
+      return "This image format is not supported. Upload JPG, PNG, WebP, or GIF instead. " + reason;
+    }
+    if (/payload too large|413|exceeded.*size/i.test(reason)) {
+      return "This image is too large. Use a photo under 8 MB.";
+    }
+    return "Photo upload failed: " + reason;
   }
 
-  function handleServiceImageChange(event) {
+  function validGigImage(file) {
+    return !!file && ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)
+      && file.size > 0 && file.size <= 8 * 1024 * 1024;
+  }
+
+  async function handleServiceImageChange(event) {
     const file = event.target.files?.[0] || null;
-    if (file && (!file.type.startsWith("image/") || file.size > 8 * 1024 * 1024)) {
-      setErrorText("Choose an image smaller than 8 MB.");
+    const sequence = ++coverSelectionSequence.current;
+    setCoverUpload(null);
+    setCoverUploadStatus("");
+    setErrorText("");
+    if (!file) {
+      setServiceImageFile(null);
+      setServiceImagePreviewUrl("");
+      return;
+    }
+    if (!validGigImage(file)) {
+      setServiceImageFile(null);
+      setServiceImagePreviewUrl("");
+      setErrorText("Choose a JPG, PNG, WebP or GIF image under 8 MB. HEIC/HEIF files must be converted first.");
+      event.target.value = "";
       return;
     }
     setServiceImageFile(file);
-    setServiceImagePreviewUrl(file ? URL.createObjectURL(file) : "");
+    setServiceImagePreviewUrl(URL.createObjectURL(file));
+    setUploadingCover(true);
+    setCoverUploadStatus("Uploading cover photo to KaziHub...");
+    try {
+      const result = await uploadServiceImage(file, "cover");
+      if (sequence !== coverSelectionSequence.current) return;
+      if (result.error || !result.publicUrl) {
+        setCoverUploadStatus("");
+        setErrorText(formatUploadError(result.error || { message: "No public photo URL returned" }));
+        return;
+      }
+      setCoverUpload(result);
+      setCoverUploadStatus("Cover photo uploaded successfully. You can publish this gig.");
+    } catch (error) {
+      if (sequence === coverSelectionSequence.current) {
+        setCoverUploadStatus("");
+        setErrorText(formatUploadError(error));
+      }
+    } finally {
+      if (sequence === coverSelectionSequence.current) setUploadingCover(false);
+    }
   }
 
   function handleGalleryImagesChange(event) {
     const files = Array.from(event.target.files || []);
+    if (files.length > 5 || files.some((file) => !validGigImage(file))) {
+      setErrorText("Choose up to 5 gallery images, each JPG, PNG, WebP or GIF and smaller than 8 MB.");
+      event.target.value = "";
+      return;
+    }
+    setErrorText("");
     setGalleryImageFiles(files);
-    setGalleryImagePreviews(
-      files.map((file) => ({
-        id: `${file.name}-${file.lastModified}-${file.size}`,
-        name: file.name,
-        previewUrl: URL.createObjectURL(file),
-      }))
-    );
+    setGalleryImagePreviews(files.map((file) => ({
+      id: `${file.name}-${file.lastModified}-${file.size}`,
+      name: file.name,
+      previewUrl: URL.createObjectURL(file),
+    })));
   }
 
   function removeGalleryImage(indexToRemove) {
@@ -7480,11 +7534,11 @@ function CreateServicePage() {
     if (!file) return { publicUrl: null, filePath: null, error: null };
 
     const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const filePath = `${user.id}/${pathPrefix}-${Date.now()}-${safeFileName}`;
+    const filePath = `${user.id}/${pathPrefix}-${crypto.randomUUID()}-${safeFileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from("service-media")
-      .upload(filePath, file);
+      .upload(filePath, file, { contentType: file.type, cacheControl: "3600", upsert: false });
 
     if (uploadError) {
       return {
@@ -7525,12 +7579,12 @@ function CreateServicePage() {
       setErrorText("Gig title, category, description and currency are required.");
       return;
     }
-    if (!serviceImageFile) {
-      setErrorText("Upload a main gig photo before publishing.");
+    if (uploadingCover) {
+      setErrorText("Finish uploading your cover photo before publishing.");
       return;
     }
-    if (!serviceImageFile.type.startsWith("image/") || serviceImageFile.size > 8 * 1024 * 1024) {
-      setErrorText("Select a valid photo smaller than 8 MB.");
+    if (!serviceImageFile || !coverUpload?.publicUrl) {
+      setErrorText("Choose a cover photo and wait for the green upload-success message before publishing.");
       return;
     }
     const allPackages = [
@@ -7550,21 +7604,8 @@ function CreateServicePage() {
     setDraftMessage("");
     setErrorText("");
 
-    let uploadedImageUrl = null;
-    let uploadedImagePath = null;
-
-    if (serviceImageFile) {
-      const uploadResult = await uploadServiceImage(serviceImageFile, "main");
-
-      if (uploadResult.error) {
-        setErrorText(formatUploadError(uploadResult.error));
-        setLoading(false);
-        return;
-      }
-
-      uploadedImageUrl = uploadResult.publicUrl;
-      uploadedImagePath = uploadResult.filePath;
-    }
+    const uploadedImageUrl = coverUpload.publicUrl;
+    const uploadedImagePath = coverUpload.filePath;
 
     const { data: createdOffer, error: offerError } = await supabase
       .from("service_offers")
@@ -7842,11 +7883,17 @@ function CreateServicePage() {
                 <input
                   className="sr-only"
                   type="file"
-                  accept="image/*"
+                  accept=".jpg,.jpeg,.png,.webp,.gif"
                   required
                   onChange={handleServiceImageChange}
                 />
               </label>
+              {coverUploadStatus && (
+                <p role="status" className={`mt-3 rounded-xl p-3 text-sm font-medium ${coverUpload ? "bg-emerald-50 text-emerald-800" : "bg-blue-50 text-blue-700"}`}>
+                  {coverUploadStatus}
+                </p>
+              )}
+              <p className="mt-2 text-xs text-slate-500">Accepted: JPG, PNG, WebP, GIF · Maximum 8 MB. Your cover is uploaded immediately so you can verify it worked.</p>
             </div>
 
             <div>
@@ -7858,12 +7905,13 @@ function CreateServicePage() {
                 <input
                   className="sr-only"
                   type="file"
-                  accept="image/*"
+                  accept=".jpg,.jpeg,.png,.webp,.gif"
                   multiple
                   onChange={handleGalleryImagesChange}
                 />
               </label>
 
+              <p className="mt-2 text-xs text-slate-500">Optional: up to 5 images, max 8 MB each. Gallery images upload when you publish the gig.</p>
               {galleryImagePreviews.length > 0 && (
                 <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {galleryImagePreviews.map((preview, index) => (
@@ -7942,7 +7990,7 @@ function CreateServicePage() {
             </button>
 
             <button
-              disabled={loading || (profile && profile.role !== "seller")}
+              disabled={loading || uploadingCover || !coverUpload || (profile && profile.role !== "seller")}
               className="rounded-full bg-primary px-6 py-3 font-semibold text-white disabled:opacity-60"
             >
               {loading ? "Submitting..." : "Submit Service Offer"}
