@@ -161,23 +161,32 @@ const unreadNotificationCount = notifications.filter(
   return (
     <header className="sticky top-0 z-50 border-b bg-white">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-        <Link to="/" className="text-2xl font-bold text-primary">
+        <Link to={profile?.role === "seller" ? "/seller-dashboard" : "/"} className="text-2xl font-bold text-primary">
           KaziHub
         </Link>
 
-        <nav className="hidden items-center gap-6 text-sm font-medium text-slate-700 md:flex">
-          <Link to="/services">Browse Services</Link>
-          <Link to="/categories/engineering-and-architecture">Categories</Link>
-          <Link to="/project-requests">Project Requests</Link>
-          <Link to="/messages" className="inline-flex items-center gap-1">
-            <MessageCircle size={16} /> Messages
-          </Link>
-          <Link to="/support">Support</Link>
-          <Link to="/profile-setup">Profile</Link>
-          <Link to="/seller-dashboard">Sell Services</Link>
-          {profile?.role === "admin" && <Link to="/admin">Admin</Link>}
+        <nav aria-label={profile?.role === "seller" ? "Seller workspace" : "Marketplace"} className="hidden items-center gap-5 text-sm font-medium text-slate-700 md:flex">
+          {profile?.role === "seller" ? (
+            <>
+              <Link to="/seller-dashboard" className="hover:text-primary">Overview</Link>
+              <Link to="/messages" className="inline-flex items-center gap-1 hover:text-primary"><MessageCircle size={16} /> Inbox</Link>
+              <Link to="/seller-dashboard?section=services" className="hover:text-primary">My Gigs</Link>
+              <Link to="/seller-dashboard?section=orders" className="hover:text-primary">Orders</Link>
+              <Link to="/seller-dashboard?section=payouts" className="hover:text-primary">Earnings</Link>
+              <Link to="/profile-setup" className="hover:text-primary">Profile</Link>
+            </>
+          ) : (
+            <>
+              <Link to="/services">Browse Services</Link>
+              <Link to="/categories/engineering-and-architecture">Categories</Link>
+              <Link to="/project-requests">Project Requests</Link>
+              <Link to="/messages" className="inline-flex items-center gap-1"><MessageCircle size={16} /> Messages</Link>
+              <Link to="/support">Support</Link>
+              {user && <Link to="/profile-setup">Profile</Link>}
+              {profile?.role === "admin" && <Link to="/admin">Admin</Link>}
+            </>
+          )}
         </nav>
-
         <div className="flex items-center gap-3">
           {user ? (
             <>
@@ -2664,6 +2673,7 @@ function ProfileSetupPage() {
 
 function SellerDashboardPage() {
   const { user, profile } = useAuth();
+  const location = useLocation();
 
   const [myOffers, setMyOffers] = useState([]);
   const [loadingOffers, setLoadingOffers] = useState(true);
@@ -2702,18 +2712,29 @@ function SellerDashboardPage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState("");
   const [profileError, setProfileError] = useState("");
-  const [activeSellerSection, setActiveSellerSection] = useState("overview");
+  const [activeSellerSection, setActiveSellerSection] = useState(() =>
+    new URLSearchParams(window.location.search).get("section") || "overview"
+  );
+  const [sellerInbox, setSellerInbox] = useState([]);
+  const [sellerInboxUnread, setSellerInboxUnread] = useState({});
+  const [loadingSellerInbox, setLoadingSellerInbox] = useState(true);
+
+  useEffect(() => {
+    const requested = new URLSearchParams(location.search).get("section");
+    setActiveSellerSection(requested || "overview");
+  }, [location.search]);
   const sellerSections = [
     { id: "overview", label: "Overview" },
+    { id: "inbox", label: "Inbox" },
     { id: "verification", label: "Verification" },
     { id: "profile", label: "Profile" },
     { id: "drafts", label: "Drafts" },
     { id: "requests", label: "Buyer Requests" },
-    { id: "services", label: "Services" },
+    { id: "services", label: "My Gigs" },
     { id: "analytics", label: "Analytics" },
     { id: "customOffers", label: "Custom Offers" },
     { id: "orders", label: "Orders" },
-    { id: "payouts", label: "Payouts" },
+    { id: "payouts", label: "Earnings" },
     { id: "reviews", label: "Reviews" },
   ];
 
@@ -2797,6 +2818,48 @@ function SellerDashboardPage() {
     setServiceAnalytics(analyticsRows);
     setLoadingServiceAnalytics(false);
   }, [user]);
+
+  const fetchSellerInbox = useCallback(async () => {
+    if (!user) {
+      setSellerInbox([]);
+      setSellerInboxUnread({});
+      setLoadingSellerInbox(false);
+      return;
+    }
+    setLoadingSellerInbox(true);
+    const { data, error } = await supabase
+      .from("direct_conversations")
+      .select("id, subject, service_offer_id, buyer_id, updated_at")
+      .eq("seller_id", user.id)
+      .order("updated_at", { ascending: false })
+      .limit(12);
+    if (error) {
+      setErrorText(error.message);
+      setSellerInbox([]);
+      setSellerInboxUnread({});
+    } else {
+      const conversations = data || [];
+      setSellerInbox(conversations);
+      if (conversations.length) {
+        const { data: unreadMessages, error: unreadError } = await supabase
+          .from("direct_messages")
+          .select("conversation_id")
+          .in("conversation_id", conversations.map((c) => c.id))
+          .eq("is_read", false)
+          .neq("sender_id", user.id);
+        if (!unreadError) {
+          const counts = {};
+          (unreadMessages || []).forEach(({conversation_id}) => {
+            counts[conversation_id] = (counts[conversation_id] || 0) + 1;
+          });
+          setSellerInboxUnread(counts);
+        }
+      } else {
+        setSellerInboxUnread({});
+      }
+    }
+    setLoadingSellerInbox(false);
+  }, [user?.id]);
 
   const fetchMyOffers = useCallback(async () => {
     if (!user) {
@@ -3029,6 +3092,7 @@ function SellerDashboardPage() {
   useEffect(() => {
     function loadSellerDashboard() {
       fetchMyOffers();
+      fetchSellerInbox();
       fetchMyCustomOffers();
       fetchSellerOrders();
       fetchSellerPayoutOrders();
@@ -3041,6 +3105,7 @@ function SellerDashboardPage() {
   }, [
     user,
     fetchMyOffers,
+    fetchSellerInbox,
     fetchMyCustomOffers,
     fetchSellerOrders,
     fetchSellerPayoutOrders,
@@ -3293,8 +3358,65 @@ function SellerDashboardPage() {
         ))}
       </div>
 
+      {activeSellerSection === "inbox" && (
+        <section className="mt-8 rounded-3xl border bg-white p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold">Buyer Inbox</h2>
+              <p className="mt-1 text-sm text-muted">Messages buyers send from your gigs.</p>
+            </div>
+            <button type="button" onClick={fetchSellerInbox}
+              className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold">Refresh Inbox</button>
+          </div>
+          {loadingSellerInbox ? (
+            <p className="mt-6 text-muted">Loading buyer messages...</p>
+          ) : sellerInbox.length === 0 ? (
+            <div className="mt-6 rounded-2xl bg-slate-50 p-6">
+              <h3 className="font-bold">No buyer inquiries yet</h3>
+              <p className="mt-2 text-sm text-muted">Once a buyer clicks Contact Seller on one of your published gigs, the conversation appears here.</p>
+              <Link to="/seller-dashboard?section=services" className="mt-4 inline-block font-semibold text-primary">Manage My Gigs</Link>
+            </div>
+          ) : (
+            <div className="mt-5 divide-y rounded-2xl border">
+              {sellerInbox.map((conversation) => (
+                <Link key={conversation.id} to={`/messages/${conversation.id}`}
+                  className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 transition hover:bg-slate-50">
+                  <div>
+                    <p className="text-xs font-medium text-slate-500">Buyer inquiry · Gig message</p>
+                    <h3 className="mt-1 font-bold text-slate-900">{conversation.subject || "Service inquiry"}</h3>
+                    <p className="mt-1 text-xs text-slate-500">Updated {conversation.updated_at ? new Date(conversation.updated_at).toLocaleString() : "recently"}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {sellerInboxUnread[conversation.id] > 0 && (
+                      <span className="rounded-full bg-primary px-3 py-1 text-xs font-bold text-white">
+                        {sellerInboxUnread[conversation.id]} unread
+                      </span>
+                    )}
+                    <span className="text-sm font-semibold text-primary">Open conversation</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+          <Link to="/messages" className="mt-5 inline-block font-semibold text-primary">View all conversations</Link>
+        </section>
+      )}
+
       {activeSellerSection === "overview" && (
         <div className="mt-8 rounded-3xl border bg-white p-6">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-teal-100 bg-teal-50 p-4">
+            <div>
+              <p className="font-semibold text-slate-900">Buyer Inbox</p>
+              <p className="text-sm text-slate-600">
+                {loadingSellerInbox ? "Checking your inquiries..." :
+                  `${sellerInbox.length} recent conversation(s) · ${Object.values(sellerInboxUnread).reduce((a,b) => a+b,0)} unread message(s)`}
+              </p>
+            </div>
+            <button type="button" onClick={() => setActiveSellerSection("inbox")}
+              className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white">
+              Open Inbox
+            </button>
+          </div>
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-xl font-bold">Overview</h2>
