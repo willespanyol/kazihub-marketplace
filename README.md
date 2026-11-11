@@ -1,16 +1,23 @@
-# React + Vite
+# KaziHub Marketplace
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React/Vite marketplace frontend backed by Supabase.
 
-Currently, two official plugins are available:
+## Netlify deployment
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Use the **existing** Netlify project `kazihub-marketplace` (custom domain `kazihub.site`), not a new site.
 
-## React Compiler
+- Repository: `willespanyol/kazihub-marketplace`
+- Production branch: `main`
+- Build command: `npm run build`
+- Publish directory: `dist`
+- SPA redirects: `netlify.toml`
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+In Netlify **Project configuration → Environment variables**, set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` using the project's Supabase URL and **publishable/anon** key. Never put a service-role key in Vite variables. Values must be available during the build.
 
-## Expanding the ESLint configuration
+## Local development
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Run `npm ci`, copy `.env.example` to `.env.local`, provide the Supabase settings, and run `npm run dev`.
+
+**Source synchronization:** The original local project ZIP includes uncommitted application changes. Ensure the prepared clean source ZIP is pushed to this repository before enabling production deployment; the GitHub checkout may otherwise be older than the local project.
+
+Truehost and Apache deployment bundles are not required on Netlify.
