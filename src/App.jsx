@@ -4053,7 +4053,7 @@ function SellerDashboardPage() {
                 {sellerPayoutOrders.map((order) => {
                   let payoutStatusDisplay = order.payout_status || "not_available";
                   if (order.payout_status === "waiting_period" && order.payout_available_at) {
-                    payoutStatusDisplay = `Available on ${new Date(order.payout_available_at).toLocaleDateString()}`;
+                    payoutStatusDisplay = new Date(order.payout_available_at) <= new Date() ? "Available — request payout" : `Available on ${new Date(order.payout_available_at).toLocaleDateString()}`;
                   } else if (order.payout_status === "waiting_period") {
                     payoutStatusDisplay = "Waiting period";
                   } else if (order.payout_status === "available") {
@@ -9715,7 +9715,7 @@ for (const admin of admins || []) {
       return;
     }
 
-    if (order.payout_status !== "available") {
+    if (!["available", "waiting_period"].includes(order.payout_status)) {
       setErrorText("Payout can be requested 7 days after order completion.");
       return;
     }
@@ -10007,13 +10007,13 @@ for (const admin of admins || []) {
                 </p>
               )}
 
-              {order.status === "completed" && order.payout_status === "waiting_period" && order.payout_available_at && (
+              {order.status === "completed" && order.payout_status === "waiting_period" && order.payout_available_at && new Date(order.payout_available_at) > new Date() && (
                 <p className="mt-5 rounded-xl bg-blue-50 p-4 text-sm font-medium text-blue-700">
                   Payout available on: {new Date(order.payout_available_at).toLocaleString()}
                 </p>
               )}
 
-              {order.payout_status === "available" && (
+              {(order.payout_status === "available" || (order.payout_status === "waiting_period" && order.payout_available_at && new Date(order.payout_available_at) <= new Date())) && (
                 <form onSubmit={handleRequestPayout} className="mt-5 grid gap-3">
                   {order.payout_rejection_reason && (
                     <div className="rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700">
@@ -10056,10 +10056,10 @@ for (const admin of admins || []) {
             <div className="mt-6 rounded-2xl border bg-blue-50 p-5 text-blue-800">
               <p className="font-bold">Order Delivered - Review Period</p>
               <p className="mt-2 text-sm">
-                The seller has delivered the work. You have 3 days from the delivery time to review it. You may complete the order or request a revision. If no action is taken within 3 days, the order will automatically complete.
+                The seller has delivered the work. You have 3 days from the delivery time to review it. You may complete the order or request a revision. If you need more time or have a dispute, contact KaziHub support.
               </p>
               <p className="mt-3 text-sm font-semibold">
-                Review deadline: {new Date(new Date(order.delivered_at).getTime() + 3 * 24 * 60 * 60 * 1000).toLocaleString()}
+                Suggested review date: {new Date(new Date(order.delivered_at).getTime() + 3 * 24 * 60 * 60 * 1000).toLocaleString()}
               </p>
             </div>
           )}
