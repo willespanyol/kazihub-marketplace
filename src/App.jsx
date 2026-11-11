@@ -7123,10 +7123,6 @@ function CreateServicePage() {
   const [galleryImagePreviews, setGalleryImagePreviews] = useState([]);
   const [videoUrl, setVideoUrl] = useState("");
 
-  const [seoTitle, setSeoTitle] = useState("");
-  const [seoDescription, setSeoDescription] = useState("");
-  const [tags, setTags] = useState("");
-
   const [basicTitle, setBasicTitle] = useState("Basic");
   const [basicDescription, setBasicDescription] = useState("");
   const [basicPackagePrice, setBasicPackagePrice] = useState("");
@@ -7144,12 +7140,6 @@ function CreateServicePage() {
   const [premiumPrice, setPremiumPrice] = useState("");
   const [premiumDeliveryDays, setPremiumDeliveryDays] = useState("");
   const [premiumRevisions, setPremiumRevisions] = useState("3");
-
-  const [faqs, setFaqs] = useState([
-    { question: "", answer: "" },
-    { question: "", answer: "" },
-    { question: "", answer: "" },
-  ]);
 
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState("");
@@ -7199,6 +7189,10 @@ function CreateServicePage() {
 
   function handleServiceImageChange(event) {
     const file = event.target.files?.[0] || null;
+    if (file && (!file.type.startsWith("image/") || file.size > 8 * 1024 * 1024)) {
+      setErrorText("Choose an image smaller than 8 MB.");
+      return;
+    }
     setServiceImageFile(file);
     setServiceImagePreviewUrl(file ? URL.createObjectURL(file) : "");
   }
@@ -7220,31 +7214,12 @@ function CreateServicePage() {
     setGalleryImagePreviews((current) => current.filter((_, index) => index !== indexToRemove));
   }
 
-  function updateFaq(index, field, value) {
-    setFaqs((current) =>
-      current.map((faq, faqIndex) =>
-        faqIndex === index ? { ...faq, [field]: value } : faq
-      )
-    );
-  }
-
-  function addFaq() {
-    setFaqs((current) => [...current, { question: "", answer: "" }]);
-  }
-
-  function removeFaq(index) {
-    setFaqs((current) => current.filter((_, faqIndex) => faqIndex !== index));
-  }
-
   function buildDraftPayload() {
     return {
       title,
       category,
       description,
       currency,
-      seoTitle,
-      seoDescription,
-      tags,
       videoUrl,
       packages: {
         basic: {
@@ -7269,7 +7244,6 @@ function CreateServicePage() {
           revisions: premiumRevisions,
         },
       },
-      faqs,
     };
   }
 
@@ -7281,9 +7255,6 @@ function CreateServicePage() {
     setDescription(draftData.description || "");
     setCurrency(draftData.currency || "USD");
 
-    setSeoTitle(draftData.seoTitle || "");
-    setSeoDescription(draftData.seoDescription || "");
-    setTags(draftData.tags || "");
     setVideoUrl(draftData.videoUrl || "");
 
     if (draftData.packages?.basic) {
@@ -7310,9 +7281,6 @@ function CreateServicePage() {
       setPremiumRevisions(draftData.packages.premium.revisions || "3");
     }
 
-    if (Array.isArray(draftData.faqs) && draftData.faqs.length > 0) {
-      setFaqs(draftData.faqs);
-    }
   }
 
   useEffect(() => {
@@ -7363,7 +7331,7 @@ function CreateServicePage() {
     setErrorText("");
 
     const draftPayload = buildDraftPayload();
-    const draftName = title.trim() || seoTitle.trim() || "Untitled Service Draft";
+    const draftName = title.trim() || "Untitled Service Draft";
 
     let error;
     let savedDraft;
@@ -7456,6 +7424,31 @@ function CreateServicePage() {
       return;
     }
 
+    if (!title.trim() || !category || !description.trim() || !currency) {
+      setErrorText("Gig title, category, description and currency are required.");
+      return;
+    }
+    if (!serviceImageFile) {
+      setErrorText("Upload a main gig photo before publishing.");
+      return;
+    }
+    if (!serviceImageFile.type.startsWith("image/") || serviceImageFile.size > 8 * 1024 * 1024) {
+      setErrorText("Select a valid photo smaller than 8 MB.");
+      return;
+    }
+    const allPackages = [
+      { tier: "Basic", title: basicTitle, description: basicDescription, price: basicPackagePrice, days: basicPackageDeliveryDays, revisions: basicPackageRevisions },
+      { tier: "Standard", title: standardTitle, description: standardDescription, price: standardPrice, days: standardDeliveryDays, revisions: standardRevisions },
+      { tier: "Premium", title: premiumTitle, description: premiumDescription, price: premiumPrice, days: premiumDeliveryDays, revisions: premiumRevisions },
+    ];
+    for (const pkg of allPackages) {
+      if (!pkg.title.trim() || !pkg.description.trim() || pkg.price === "" || !Number.isFinite(Number(pkg.price)) || Number(pkg.price) < 5 ||
+          pkg.days === "" || !Number.isInteger(Number(pkg.days)) || Number(pkg.days) < 1 ||
+          pkg.revisions === "" || !Number.isInteger(Number(pkg.revisions)) || Number(pkg.revisions) < 0) {
+        setErrorText(`Complete every field in the ${pkg.tier} package: title, description, price (minimum 5), delivery days (minimum 1), and revisions.`);
+        return;
+      }
+    }
     setLoading(true);
     setDraftMessage("");
     setErrorText("");
@@ -7480,17 +7473,14 @@ function CreateServicePage() {
       .from("service_offers")
       .insert({
         seller_id: user.id,
-        title,
+        title: title.trim(),
         category,
-        description,
+        description: description.trim(),
         basic_price: Number(basicPackagePrice),
         currency,
         delivery_days: Number(basicPackageDeliveryDays),
         revisions: Number(basicPackageRevisions),
-        image_url: uploadedImageUrl || imageUrl || null,
-        seo_title: seoTitle.trim() || null,
-        seo_description: seoDescription.trim() || null,
-        tags: tags.trim() || null,
+        image_url: uploadedImageUrl,
         status: "pending_review",
       })
       .select()
@@ -7610,28 +7600,6 @@ function CreateServicePage() {
       }
     }
 
-    const faqRows = faqs
-      .filter((faq) => faq.question.trim() && faq.answer.trim())
-      .map((faq, index) => ({
-        service_offer_id: createdOffer.id,
-        seller_id: user.id,
-        question: faq.question.trim(),
-        answer: faq.answer.trim(),
-        display_order: index + 1,
-      }));
-
-    if (faqRows.length > 0) {
-      const { error: faqError } = await supabase
-        .from("service_offer_faqs")
-        .insert(faqRows);
-
-      if (faqError) {
-        setErrorText(faqError.message);
-        setLoading(false);
-        return;
-      }
-    }
-
     if (loadedDraftId) {
       await supabase
         .from("service_offer_drafts")
@@ -7639,21 +7607,14 @@ function CreateServicePage() {
         .eq("id", loadedDraftId);
     }
 
-    const { data: admins } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("role", "admin");
-
-    for (const admin of admins || []) {
-      await sendNotification({
-        userId: admin.id,
-        type: "service_offer_pending",
-        title: "Service offer awaiting review",
-        message: "A seller submitted a new service offer for approval.",
-        link: "/admin",
-      });
+    const { error: publishError } = await supabase.from("service_offers")
+      .update({ status: "approved", updated_at: new Date().toISOString() })
+      .eq("id", createdOffer.id);
+    if (publishError) {
+      setErrorText(`Your service is saved privately but could not be published: ${publishError.message}`);
+      setLoading(false);
+      return;
     }
-
     setLoading(false);
     navigate("/seller-dashboard");
   }
@@ -7682,7 +7643,7 @@ function CreateServicePage() {
       <form onSubmit={handleSubmit} className="rounded-3xl border bg-white p-8 shadow-sm">
         <h1 className="text-3xl font-bold">Create a Service Offer</h1>
         <p className="mt-2 text-muted">
-          Add your service details, packages, gallery, SEO fields, and FAQs. Your Service Offer will be submitted for admin review. It will appear publicly after approval.
+          Complete the required gig details, cover photo and all three packages. Your gig goes live immediately after successful submission.
         </p>
 
         {profile && profile.role !== "seller" && (
@@ -7766,7 +7727,7 @@ function CreateServicePage() {
             <h2 className="text-xl font-bold">Images and Video</h2>
 
             <div>
-              <p className="mb-2 text-sm font-semibold">Main service image</p>
+              <p className="mb-2 text-sm font-semibold">Main gig photo <span className="text-red-600">*</span> (required, max 8 MB)</p>
               <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center transition hover:border-primary hover:bg-teal-50">
                 {serviceImagePreviewUrl ? (
                   <img
@@ -7785,17 +7746,11 @@ function CreateServicePage() {
                   className="sr-only"
                   type="file"
                   accept="image/*"
+                  required
                   onChange={handleServiceImageChange}
                 />
               </label>
             </div>
-
-            <input
-              className="rounded-xl border px-4 py-3 outline-none"
-              placeholder="Optional image URL fallback"
-              value={imageUrl}
-              onChange={(event) => setImageUrl(event.target.value)}
-            />
 
             <div>
               <p className="mb-2 text-sm font-semibold">Gallery images</p>
@@ -7852,98 +7807,31 @@ function CreateServicePage() {
             <div className="grid gap-5 lg:grid-cols-3">
               <div className="rounded-2xl border p-5">
                 <h3 className="font-bold">Basic Package</h3>
-                <input className="mt-4 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package title" value={basicTitle} onChange={(event) => setBasicTitle(event.target.value)} required />
-                <textarea className="mt-4 min-h-28 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package description" value={basicDescription} onChange={(event) => setBasicDescription(event.target.value)} required />
-                <input className="mt-4 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="5" placeholder="Price" value={basicPackagePrice} onChange={(event) => setBasicPackagePrice(event.target.value)} required />
-                <input className="mt-4 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="1" placeholder="Delivery days" value={basicPackageDeliveryDays} onChange={(event) => setBasicPackageDeliveryDays(event.target.value)} required />
-                <input className="mt-4 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="0" placeholder="Revisions" value={basicPackageRevisions} onChange={(event) => setBasicPackageRevisions(event.target.value)} required />
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Package name <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package title" value={basicTitle} onChange={(event) => setBasicTitle(event.target.value)} required /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">What is included <span className="text-red-600">*</span><textarea className="mt-2 min-h-28 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package description" value={basicDescription} onChange={(event) => setBasicDescription(event.target.value)} required /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Price <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="5" step="0.01" placeholder="Price" value={basicPackagePrice} onChange={(event) => setBasicPackagePrice(event.target.value)} required /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Delivery time (days) <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="1" placeholder="Delivery days" value={basicPackageDeliveryDays} onChange={(event) => setBasicPackageDeliveryDays(event.target.value)} required /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Included revisions <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="0" placeholder="Revisions" value={basicPackageRevisions} onChange={(event) => setBasicPackageRevisions(event.target.value)} required /></label>
               </div>
 
               <div className="rounded-2xl border p-5">
                 <h3 className="font-bold">Standard Package</h3>
-                <input className="mt-4 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package title" value={standardTitle} onChange={(event) => setStandardTitle(event.target.value)} required />
-                <textarea className="mt-4 min-h-28 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package description" value={standardDescription} onChange={(event) => setStandardDescription(event.target.value)} required />
-                <input className="mt-4 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="5" placeholder="Price" value={standardPrice} onChange={(event) => setStandardPrice(event.target.value)} required />
-                <input className="mt-4 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="1" placeholder="Delivery days" value={standardDeliveryDays} onChange={(event) => setStandardDeliveryDays(event.target.value)} required />
-                <input className="mt-4 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="0" placeholder="Revisions" value={standardRevisions} onChange={(event) => setStandardRevisions(event.target.value)} required />
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Package name <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package title" value={standardTitle} onChange={(event) => setStandardTitle(event.target.value)} required /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">What is included <span className="text-red-600">*</span><textarea className="mt-2 min-h-28 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package description" value={standardDescription} onChange={(event) => setStandardDescription(event.target.value)} required /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Price <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="5" step="0.01" placeholder="Price" value={standardPrice} onChange={(event) => setStandardPrice(event.target.value)} required /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Delivery time (days) <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="1" placeholder="Delivery days" value={standardDeliveryDays} onChange={(event) => setStandardDeliveryDays(event.target.value)} required /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Included revisions <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="0" placeholder="Revisions" value={standardRevisions} onChange={(event) => setStandardRevisions(event.target.value)} required /></label>
               </div>
 
               <div className="rounded-2xl border p-5">
                 <h3 className="font-bold">Premium Package</h3>
-                <input className="mt-4 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package title" value={premiumTitle} onChange={(event) => setPremiumTitle(event.target.value)} required />
-                <textarea className="mt-4 min-h-28 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package description" value={premiumDescription} onChange={(event) => setPremiumDescription(event.target.value)} required />
-                <input className="mt-4 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="5" placeholder="Price" value={premiumPrice} onChange={(event) => setPremiumPrice(event.target.value)} required />
-                <input className="mt-4 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="1" placeholder="Delivery days" value={premiumDeliveryDays} onChange={(event) => setPremiumDeliveryDays(event.target.value)} required />
-                <input className="mt-4 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="0" placeholder="Revisions" value={premiumRevisions} onChange={(event) => setPremiumRevisions(event.target.value)} required />
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Package name <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package title" value={premiumTitle} onChange={(event) => setPremiumTitle(event.target.value)} required /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">What is included <span className="text-red-600">*</span><textarea className="mt-2 min-h-28 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package description" value={premiumDescription} onChange={(event) => setPremiumDescription(event.target.value)} required /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Price <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="5" step="0.01" placeholder="Price" value={premiumPrice} onChange={(event) => setPremiumPrice(event.target.value)} required /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Delivery time (days) <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="1" placeholder="Delivery days" value={premiumDeliveryDays} onChange={(event) => setPremiumDeliveryDays(event.target.value)} required /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Included revisions <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="0" placeholder="Revisions" value={premiumRevisions} onChange={(event) => setPremiumRevisions(event.target.value)} required /></label>
               </div>
             </div>
-          </section>
-
-          <section className="grid gap-4">
-            <h2 className="text-xl font-bold">SEO and Search Details</h2>
-
-            <input
-              className="rounded-xl border px-4 py-3 outline-none"
-              placeholder="SEO title, for example Structural Design Calculations and Permit Drawings"
-              value={seoTitle}
-              onChange={(event) => setSeoTitle(event.target.value)}
-            />
-
-            <textarea
-              className="min-h-28 rounded-xl border px-4 py-3 outline-none"
-              placeholder="Short search-friendly description of this service."
-              value={seoDescription}
-              onChange={(event) => setSeoDescription(event.target.value)}
-            />
-
-            <input
-              className="rounded-xl border px-4 py-3 outline-none"
-              placeholder="Tags, for example AutoCAD, Revit, structural calculations, permit drawings"
-              value={tags}
-              onChange={(event) => setTags(event.target.value)}
-            />
-          </section>
-
-          <section className="grid gap-4">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-xl font-bold">Frequently Asked Questions</h2>
-
-              <button
-                type="button"
-                onClick={addFaq}
-                className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold"
-              >
-                Add FAQ
-              </button>
-            </div>
-
-            {faqs.map((faq, index) => (
-              <div key={index} className="rounded-2xl border p-5">
-                <input
-                  className="w-full rounded-xl border px-4 py-3 outline-none"
-                  placeholder="Question"
-                  value={faq.question}
-                  onChange={(event) => updateFaq(index, "question", event.target.value)}
-                />
-
-                <textarea
-                  className="mt-4 min-h-24 w-full rounded-xl border px-4 py-3 outline-none"
-                  placeholder="Answer"
-                  value={faq.answer}
-                  onChange={(event) => updateFaq(index, "answer", event.target.value)}
-                />
-
-                {faqs.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeFaq(index)}
-                    className="mt-4 rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-700"
-                  >
-                    Remove FAQ
-                  </button>
-                )}
-              </div>
-            ))}
           </section>
 
           <div className="flex flex-col gap-3 md:flex-row">
