@@ -280,6 +280,17 @@ const unreadNotificationCount = notifications.filter(
           )}
         </div>
       </div>
+      {profile?.role === "seller" && (
+        <nav aria-label="Mobile seller navigation"
+          className="flex items-center gap-2 overflow-x-auto border-t px-4 py-2 text-xs font-semibold text-slate-700 md:hidden">
+          <Link className="whitespace-nowrap rounded-full border px-3 py-2" to="/seller-dashboard">Overview</Link>
+          <Link className="whitespace-nowrap rounded-full border px-3 py-2" to="/messages">Inbox</Link>
+          <Link className="whitespace-nowrap rounded-full border px-3 py-2" to="/seller-dashboard?section=services">My Gigs</Link>
+          <Link className="whitespace-nowrap rounded-full border px-3 py-2" to="/seller-dashboard?section=orders">Orders</Link>
+          <Link className="whitespace-nowrap rounded-full border px-3 py-2" to="/seller-dashboard?section=payouts">Earnings</Link>
+          <Link className="whitespace-nowrap rounded-full border px-3 py-2" to="/profile-setup">Profile</Link>
+        </nav>
+      )}
     </header>
   );
 }
@@ -6703,7 +6714,7 @@ function MessagesPage() {
       ) : (
         <div className="grid gap-5">
           {conversations.map((conversation) => {
-            const roleLabel = conversation.buyer_id === user.id ? "Buyer" : "Seller";
+            const roleLabel = conversation.buyer_id === user.id ? "Seller conversation" : "Buyer inquiry";
 
             return (
               <Link
@@ -7603,7 +7614,7 @@ function CreateServicePage() {
         delivery_days: Number(basicPackageDeliveryDays),
         revisions: Number(basicPackageRevisions),
         image_url: uploadedImageUrl,
-        status: "pending_review",
+        status: "draft",
       })
       .select()
       .single();
@@ -7999,7 +8010,7 @@ function EditServicePage() {
     { tier: "standard", title: "Standard", description: "", price: 0, delivery_days: 1, revisions: 0 },
     { tier: "premium", title: "Premium", description: "", price: 0, delivery_days: 1, revisions: 0 },
   ]);
-  const [adminReviewNote, setAdminReviewNote] = useState("");
+
   const [saving, setSaving] = useState(false);
   const [errorText, setErrorText] = useState("");
   const [message, setMessage] = useState("");
@@ -8055,7 +8066,7 @@ function EditServicePage() {
       setDescription(offerData.description || "");
       setCurrency(offerData.currency || "USD");
       setImageUrl(offerData.image_url || "");
-      setAdminReviewNote(offerData.admin_review_note || "");
+
       setVideoUrl("");
 
       const { data: packagesData } = await supabase
@@ -8180,7 +8191,7 @@ function EditServicePage() {
         basic_price: Number(basicPackage.price),
         delivery_days: Number(basicPackage.delivery_days),
         revisions: Number(basicPackage.revisions),
-        status: "pending_review",
+        status: "draft",
       })
       .eq("id", id);
 
