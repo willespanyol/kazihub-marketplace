@@ -8014,6 +8014,7 @@ function EditServicePage() {
   const [currency, setCurrency] = useState("USD");
   const [imageUrl, setImageUrl] = useState("");
   const [serviceImageFile, setServiceImageFile] = useState(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState("");
   const [galleryImageFiles, setGalleryImageFiles] = useState([]);
   const [videoUrl, setVideoUrl] = useState("");
   const [currentMedia, setCurrentMedia] = useState([]);
@@ -8123,6 +8124,34 @@ function EditServicePage() {
     }
   }, [id, user, profile]);
 
+  function validGigImage(file) {
+    return !!file && ["image/jpeg","image/png","image/webp","image/gif"].includes(file.type)
+      && file.size > 0 && file.size <= 8 * 1024 * 1024;
+  }
+
+  function handleEditCoverChange(event) {
+    const file = event.target.files?.[0] || null;
+    if (file && !validGigImage(file)) {
+      setErrorText("Cover photos must be JPG, PNG, WebP or GIF under 8 MB. Convert HEIC/HEIF before uploading.");
+      event.target.value = "";
+      return;
+    }
+    setErrorText("");
+    setServiceImageFile(file);
+    setSelectedImagePreview(file ? URL.createObjectURL(file) : "");
+  }
+
+  function handleEditGalleryChange(event) {
+    const files = Array.from(event.target.files || []);
+    if (files.length > 5 || files.some((file) => !validGigImage(file))) {
+      setErrorText("Choose up to five JPG, PNG, WebP or GIF gallery images, each under 8 MB.");
+      event.target.value = "";
+      return;
+    }
+    setErrorText("");
+    setGalleryImageFiles(files);
+  }
+
   function updatePackage(tier, field, value) {
     setPackages((current) =>
       current.map((pkg) =>
@@ -8154,8 +8183,8 @@ function EditServicePage() {
       setErrorText("A main gig photo is required.");
       return;
     }
-    if (serviceImageFile && (!serviceImageFile.type.startsWith("image/") || serviceImageFile.size > 8 * 1024 * 1024)) {
-      setErrorText("Choose a gig photo smaller than 8 MB.");
+    if (serviceImageFile && !validGigImage(serviceImageFile)) {
+      setErrorText("Choose JPG, PNG, WebP or GIF cover photo smaller than 8 MB.");
       return;
     }
     if (packages.length !== 3 || !["basic","standard","premium"].every(tier => packages.some(pkg =>
@@ -8175,11 +8204,11 @@ function EditServicePage() {
 
     if (serviceImageFile) {
       const safeFileName = serviceImageFile.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-      const storagePath = `${user.id}/${id}/main-${Date.now()}-${safeFileName}`;
+      const storagePath = `${user.id}/${id}/main-${crypto.randomUUID()}-${safeFileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from("service-media")
-        .upload(storagePath, serviceImageFile);
+        .upload(storagePath, serviceImageFile, { contentType: serviceImageFile.type, upsert: false });
 
       if (uploadError) {
         setErrorText(uploadError.message || "Service image upload failed.");
@@ -8241,28 +8270,35 @@ function EditServicePage() {
       for (let index = 0; index < galleryImageFiles.length; index++) {
         const file = galleryImageFiles[index];
         const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-        const storagePath = `${user.id}/${id}/gallery-${Date.now()}-${safeFileName}`;
+        const storagePath = `${user.id}/${id}/gallery-${crypto.randomUUID()}-${safeFileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from("service-media")
-          .upload(storagePath, file);
+          .upload(storagePath, file, { contentType: file.type, upsert: false });
 
-        if (!uploadError) {
-          const { data: publicUrlData } = supabase.storage.from("service-media").getPublicUrl(storagePath);
+        if (uploadError) {
+          setErrorText(`Gallery image "${file.name}" could not be uploaded: ${uploadError.message}`);
+          setSaving(false);
+          return;
+        }
+        const { data: publicUrlData } = supabase.storage.from("service-media").getPublicUrl(storagePath);
+        const nextDisplayOrder =
+          Math.max(...currentMedia.filter((m) => m.is_primary !== true).map((m) => m.display_order || 0), 1) + index + 1;
 
-          const nextDisplayOrder =
-            Math.max(...currentMedia.filter((m) => m.is_primary !== true).map((m) => m.display_order || 0), 1) + index + 1;
-
-          await supabase.from("service_offer_media").insert({
-            service_offer_id: id,
-            seller_id: user.id,
-            media_type: "image",
-            media_url: publicUrlData.publicUrl,
-            storage_path: storagePath,
-            title: file.name,
-            display_order: nextDisplayOrder,
-            is_primary: false,
-          });
+        const { error: galleryRecordError } = await supabase.from("service_offer_media").insert({
+          service_offer_id: id,
+          seller_id: user.id,
+          media_type: "image",
+          media_url: publicUrlData.publicUrl,
+          storage_path: storagePath,
+          title: file.name,
+          display_order: nextDisplayOrder,
+          is_primary: false,
+        });
+        if (galleryRecordError) {
+          setErrorText(`Gallery image "${file.name}" uploaded, but could not be attached to your gig: ${galleryRecordError.message}`);
+          setSaving(false);
+          return;
         }
       }
     }
@@ -8419,14 +8455,18 @@ function EditServicePage() {
 
           <div className="rounded-2xl bg-slate-100 p-6">
             <h3 className="font-bold">Main gig photo <span className="text-red-600">*</span></h3>
-            <p className="mt-1 text-sm text-muted">Current image URL: {imageUrl || "None"}</p>
+            {(selectedImagePreview || imageUrl) && (
+              <img src={selectedImagePreview || imageUrl} alt="Current or selected gig cover"
+                className="mt-4 h-52 w-full rounded-xl object-cover" />
+            )}
             <input
               className="mt-4 w-full rounded-xl border bg-white px-4 py-3 outline-none"
               type="file"
-              accept="image/*"
-              onChange={(e) => setServiceImageFile(e.target.files?.[0] || null)}
+              accept=".jpg,.jpeg,.png,.webp,.gif"
+              onChange={handleEditCoverChange}
             />
-            {serviceImageFile && <p className="mt-2 text-sm text-slate-600">New image selected: {serviceImageFile.name}</p>}
+            <p className="mt-2 text-xs text-slate-500">JPG, PNG, WebP or GIF · Under 8 MB. New cover uploads when you save.</p>
+            {serviceImageFile && <p role="status" className="mt-2 text-sm text-slate-600">Selected: {serviceImageFile.name}</p>}
           </div>
 
           <div className="rounded-2xl bg-slate-100 p-6">
@@ -8439,11 +8479,12 @@ function EditServicePage() {
             <input
               className="mt-4 w-full rounded-xl border bg-white px-4 py-3 outline-none"
               type="file"
-              accept="image/*"
+              accept=".jpg,.jpeg,.png,.webp,.gif"
               multiple
-              onChange={(e) => setGalleryImageFiles(Array.from(e.target.files || []))}
+              onChange={handleEditGalleryChange}
             />
-            {galleryImageFiles.length > 0 && <p className="mt-2 text-sm text-slate-600">{galleryImageFiles.length} new image(s) to add</p>}
+            <p className="mt-2 text-xs text-slate-500">Up to five JPG, PNG, WebP or GIF images, maximum 8 MB each.</p>
+            {galleryImageFiles.length > 0 && <p className="mt-2 text-sm text-slate-600">{galleryImageFiles.length} new image(s) ready to upload on save</p>}
           </div>
 
           <div className="rounded-2xl bg-slate-100 p-6">
