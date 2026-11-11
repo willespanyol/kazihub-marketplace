@@ -3289,7 +3289,7 @@ function SellerDashboardPage() {
       : "0.0";
 
   const pendingPayoutUsd = sellerPayoutOrders
-    .filter((order) => order.payout_status !== "paid" && order.currency === "USD")
+    .filter((order) => order.payment_status === "paid" && ["waiting_period", "available", "requested"].includes(order.payout_status) && order.currency === "USD")
     .reduce((total, order) => total + Number(order.seller_payout || 0), 0)
     .toFixed(2);
 
@@ -3325,12 +3325,14 @@ function SellerDashboardPage() {
 
   return (
     <DashboardShell title="Seller Dashboard">
+      {activeSellerSection === "overview" && (
       <div className="grid gap-5 md:grid-cols-4">
-        <Stat title="Service Offers" value={`${myOffers.length} / 10`} />
-        <Stat title="Active Orders" value={sellerOrders.filter((order) => order.status === "active").length} />
-        <Stat title="Pending Payout" value={`$${pendingPayoutUsd}`} />
+        <Stat title="Published Gigs" value={myOffers.filter((offer) => offer.status === "approved").length} />
+        <Stat title="Active Orders" value={sellerOrders.filter((order) => ["active", "in_progress", "revision_requested"].includes(order.status)).length} />
+        <Stat title="Unpaid Earnings (USD)" value={`${pendingPayoutUsd}`} />
         <Stat title="Seller Rating" value={`${averageSellerRating} / 5`} />
       </div>
+      )}
 
       {errorText && (
         <p className="mt-6 rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700">
@@ -3338,6 +3340,7 @@ function SellerDashboardPage() {
         </p>
       )}
 
+      {["overview", "inbox"].includes(activeSellerSection) && (
       <div className="mt-8 flex flex-wrap gap-3">
         <Link
           to="/messages"
@@ -3353,6 +3356,7 @@ function SellerDashboardPage() {
           Contact Support
         </Link>
       </div>
+      )}
 
       <div className="mt-8 flex gap-3 overflow-x-auto pb-2">
         {sellerSections.map((section) => (
@@ -3939,6 +3943,7 @@ function SellerDashboardPage() {
         </div>
       )}
 
+      {activeSellerSection === "services" && (
       <div className="mt-8 rounded-3xl border bg-white p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -4044,6 +4049,9 @@ function SellerDashboardPage() {
         )}
       </div>
 
+      )}
+
+      {activeSellerSection === "analytics" && (
       <div className="mt-8 rounded-3xl border bg-white p-6">
         <h2 className="text-xl font-bold">Service Offer Analytics</h2>
         <p className="mt-2 text-muted">
@@ -4101,6 +4109,9 @@ function SellerDashboardPage() {
         )}
       </div>
 
+      )}
+
+      {activeSellerSection === "customOffers" && (
       <div className="mt-8 rounded-3xl border bg-white p-6">
         <h2 className="text-xl font-bold">Your Custom Offers</h2>
         <p className="mt-2 text-muted">
@@ -4151,6 +4162,9 @@ function SellerDashboardPage() {
         )}
       </div>
 
+      )}
+
+      {activeSellerSection === "orders" && (
       <div className="mt-8 rounded-3xl border bg-white p-6">
         <h2 className="text-xl font-bold">Your Orders</h2>
         <p className="mt-2 text-muted">
@@ -4213,8 +4227,25 @@ function SellerDashboardPage() {
         )}
       </div>
 
+      )}
+
+      {activeSellerSection === "payouts" && (
       <div className="mt-8 rounded-3xl border bg-white p-6">
-        <h2 className="text-xl font-bold">Payout Tracking</h2>
+        <h2 className="text-xl font-bold">Earnings & Payouts</h2>
+        <div className="mt-5 grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl bg-slate-50 p-5">
+            <p className="text-sm text-slate-600">Unpaid verified earnings (USD)</p>
+            <p className="mt-2 text-2xl font-bold">${pendingPayoutUsd}</p>
+          </div>
+          <div className="rounded-2xl bg-slate-50 p-5">
+            <p className="text-sm text-slate-600">Payouts requested</p>
+            <p className="mt-2 text-2xl font-bold">{sellerPayoutOrders.filter((order) => order.payout_status === "requested").length}</p>
+          </div>
+          <div className="rounded-2xl bg-slate-50 p-5">
+            <p className="text-sm text-slate-600">Completed payouts</p>
+            <p className="mt-2 text-2xl font-bold">{sellerPayoutOrders.filter((order) => order.payout_status === "paid").length}</p>
+          </div>
+        </div>
         <p className="mt-2 text-muted">
           Completed orders become payout-eligible. Open an order to request payout.
         </p>
@@ -4285,6 +4316,9 @@ function SellerDashboardPage() {
         )}
       </div>
 
+      )}
+
+      {activeSellerSection === "reviews" && (
       <div className="mt-8 rounded-3xl border bg-white p-6">
         <h2 className="text-xl font-bold">Reviews and Ratings</h2>
         <p className="mt-2 text-muted">
@@ -4326,6 +4360,8 @@ function SellerDashboardPage() {
           </div>
         )}
       </div>
+      )}
+
     </DashboardShell>
   );
 }
