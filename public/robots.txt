@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /buyer-dashboard
+Disallow: /seller-dashboard
+Disallow: /profile-setup
+Disallow: /orders/
+Disallow: /messages
+Disallow: /checkout
+Disallow: /dashboard-redirect
+Disallow: /reset-password
+Sitemap: https://kazihub.site/sitemap.xml

@@ -378,6 +378,10 @@ function HomePage() {
                     <img
                       src={service.image}
                       alt={service.title}
+                      loading="lazy"
+                      decoding="async"
+                      width="452"
+                      height="128"
                       className="h-32 w-full rounded-xl object-cover"
                     />
                     <p className="mt-3 text-xs font-semibold text-primary">
@@ -398,7 +402,7 @@ function HomePage() {
           <FeatureCard
             icon={<ShieldCheck />}
             title="Instant live services"
-            text="Every Service Offer goes live immediately after submission."
+            text="Every Service Offer is reviewed before it appears publicly."
           />
           <FeatureCard
             icon={<CreditCard />}
@@ -2171,6 +2175,7 @@ function DashboardRedirectPage() {
 
 function ProfileSetupPage() {
   const navigate = useNavigate();
+  const draftReady = useRef(false);
   const { user, profile, loading, refreshProfile } = useAuth();
 
   const [profileData, setProfileData] = useState(null);
@@ -2244,11 +2249,49 @@ function ProfileSetupPage() {
       setLocation(data?.location || "");
       setCommunicationNote(data?.communication_note || "");
 
+      // The browser may discard a background tab. Restore unsaved text after
+      // the server profile loads, without overwriting already-saved data.
+      try {
+        const stored = sessionStorage.getItem(`kazihub-profile-draft:${user.id}`);
+        if (stored) {
+          const draft = JSON.parse(stored);
+          const setters = {
+            fullName:setFullName, country:setCountry, headline:setHeadline,
+            bio:setBio, languages:setLanguages, professionalTitle:setProfessionalTitle,
+            skills:setSkills, yearsExperience:setYearsExperience,
+            websiteUrl:setWebsiteUrl, categories:setCategories,
+            sellerDescription:setSellerDescription, buyerType:setBuyerType,
+            commonProjectType:setCommonProjectType, location:setLocation,
+            communicationNote:setCommunicationNote,
+          };
+          Object.entries(setters).forEach(([key,setter]) => {
+            if (typeof draft[key] === "string") setter(draft[key]);
+          });
+        }
+      } catch (error) {
+        console.warn("Unable to restore profile draft", error);
+      }
+      draftReady.current = true;
       setLoadingProfile(false);
     }
 
     loadProfile();
   }, [user]);
+
+  useEffect(() => {
+    if (!user || !draftReady.current || loadingProfile) return;
+    try {
+      sessionStorage.setItem(`kazihub-profile-draft:${user.id}`, JSON.stringify({
+        fullName,country,headline,bio,languages,professionalTitle,skills,
+        yearsExperience,websiteUrl,categories,sellerDescription,buyerType,
+        commonProjectType,location,communicationNote,
+      }));
+    } catch (error) {
+      console.warn("Unable to save profile draft", error);
+    }
+  }, [user,loadingProfile,fullName,country,headline,bio,languages,professionalTitle,
+    skills,yearsExperience,websiteUrl,categories,sellerDescription,buyerType,
+    commonProjectType,location,communicationNote]);
 
   function handleProfileImageChange(event) {
     const file = event.target.files?.[0];
@@ -2353,6 +2396,11 @@ function ProfileSetupPage() {
       : "/buyer-dashboard";
 
     setMessage("Profile saved successfully. Redirecting...");
+    try {
+      sessionStorage.removeItem(`kazihub-profile-draft:${user.id}`);
+    } catch (error) {
+      console.warn("Unable to clear saved draft", error);
+    }
     await refreshProfile();
     navigate(redirectPath);
   }

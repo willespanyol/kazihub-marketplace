@@ -9,7 +9,7 @@ export const services = [
     rating: 4.9,
     reviews: 42,
     delivery: "3 days",
-    image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=900&q=80",
+    image: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=480&q=65",
   },
   {
     id: 2,
@@ -21,7 +21,7 @@ export const services = [
     rating: 4.8,
     reviews: 31,
     delivery: "2 days",
-    image: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=900&q=80",
+    image: "https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=480&q=65",
   },
   {
     id: 3,
@@ -33,7 +33,7 @@ export const services = [
     rating: 5.0,
     reviews: 18,
     delivery: "4 days",
-    image: "https://images.unsplash.com/photo-1584467735871-829732db1774?auto=format&fit=crop&w=900&q=80",
+    image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=480&q=65",
   },
   {
     id: 4,
@@ -45,6 +45,6 @@ export const services = [
     rating: 4.7,
     reviews: 26,
     delivery: "2 days",
-    image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=900&q=80",
+    image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=480&q=65",
   },
 ];

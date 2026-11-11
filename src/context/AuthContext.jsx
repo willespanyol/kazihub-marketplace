@@ -42,16 +42,19 @@ export function AuthProvider({ children }) {
     loadSession();
 
  const { data: listener } = supabase.auth.onAuthStateChange(
-  (_event, session) => {
+  (event, session) => {
+    // Supabase emits TOKEN_REFRESHED and INITIAL_SESSION when a tab resumes.
+    // Those events should not reset form or dashboard state.
+    if (event === "TOKEN_REFRESHED") return;
     const currentUser = session?.user ?? null;
     setUser(currentUser);
-
     if (!currentUser) {
       setProfile(null);
       setLoading(false);
       return;
     }
-
+    // Avoid a redundant full profile query on every tab-focus token refresh.
+    if (event === "INITIAL_SESSION") return;
     setTimeout(async () => {
       const currentProfile = await fetchProfile(currentUser.id);
       setProfile(currentProfile);
