@@ -2954,7 +2954,7 @@ function SellerDashboardPage() {
     const { data, error } = await supabase
       .from("project_requests")
       .select("*")
-      .in("status", ["open", "active", "posted"])
+      .eq("status", "open")
       .order("created_at", { ascending: false });
 
     if (error) {
