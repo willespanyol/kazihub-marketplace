@@ -2176,6 +2176,7 @@ function DashboardRedirectPage() {
 function ProfileSetupPage() {
   const navigate = useNavigate();
   const draftReady = useRef(false);
+  const draftCache = useRef({});
   const { user, profile, loading, refreshProfile } = useAuth();
 
   const [profileData, setProfileData] = useState(null);
@@ -2209,6 +2210,19 @@ function ProfileSetupPage() {
       navigate("/login");
     }
   }, [loading, user, navigate]);
+
+  function saveDraftField(field, value, setter) {
+    setter(value);
+    if (!user) return;
+    draftCache.current = { ...draftCache.current, [field]: value };
+    try {
+      // Persist immediately on each keystroke. Effects can be skipped when
+      // Chrome discards a background tab before React flushes.
+      localStorage.setItem(`kazihub-profile-draft:${user.id}`, JSON.stringify(draftCache.current));
+    } catch (error) {
+      console.warn("Could not preserve profile draft", error);
+    }
+  }
 
   useEffect(() => {
     async function loadProfile() {
@@ -2252,7 +2266,8 @@ function ProfileSetupPage() {
       // The browser may discard a background tab. Restore unsaved text after
       // the server profile loads, without overwriting already-saved data.
       try {
-        const stored = sessionStorage.getItem(`kazihub-profile-draft:${user.id}`);
+        const key = `kazihub-profile-draft:${user.id}`;
+        const stored = localStorage.getItem(key) || sessionStorage.getItem(key);
         if (stored) {
           const draft = JSON.parse(stored);
           const setters = {
@@ -2264,6 +2279,9 @@ function ProfileSetupPage() {
             commonProjectType:setCommonProjectType, location:setLocation,
             communicationNote:setCommunicationNote,
           };
+          draftCache.current = Object.fromEntries(
+            Object.entries(draft).filter(([,value]) => typeof value === "string")
+          );
           Object.entries(setters).forEach(([key,setter]) => {
             if (typeof draft[key] === "string") setter(draft[key]);
           });
@@ -2277,21 +2295,6 @@ function ProfileSetupPage() {
 
     loadProfile();
   }, [user]);
-
-  useEffect(() => {
-    if (!user || !draftReady.current || loadingProfile) return;
-    try {
-      sessionStorage.setItem(`kazihub-profile-draft:${user.id}`, JSON.stringify({
-        fullName,country,headline,bio,languages,professionalTitle,skills,
-        yearsExperience,websiteUrl,categories,sellerDescription,buyerType,
-        commonProjectType,location,communicationNote,
-      }));
-    } catch (error) {
-      console.warn("Unable to save profile draft", error);
-    }
-  }, [user,loadingProfile,fullName,country,headline,bio,languages,professionalTitle,
-    skills,yearsExperience,websiteUrl,categories,sellerDescription,buyerType,
-    commonProjectType,location,communicationNote]);
 
   function handleProfileImageChange(event) {
     const file = event.target.files?.[0];
@@ -2397,7 +2400,9 @@ function ProfileSetupPage() {
 
     setMessage("Profile saved successfully. Redirecting...");
     try {
+      localStorage.removeItem(`kazihub-profile-draft:${user.id}`);
       sessionStorage.removeItem(`kazihub-profile-draft:${user.id}`);
+      draftCache.current = {};
     } catch (error) {
       console.warn("Unable to clear saved draft", error);
     }
@@ -2423,6 +2428,10 @@ function ProfileSetupPage() {
           <p className="text-muted">Loading your profile...</p>
         ) : (
           <form onSubmit={handleSubmit} className="grid gap-8">
+            <p role="status" className="text-xs text-slate-500">
+              Your unsaved text is kept in this browser until you finish saving your profile.
+              Selected image files must be selected again if the browser reloads.
+            </p>
             <div className="grid gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-6">
               <h2 className="text-xl font-semibold">Basic profile details</h2>
 
@@ -2431,7 +2440,7 @@ function ProfileSetupPage() {
                   Full name
                   <input
                     value={fullName}
-                    onChange={(event) => setFullName(event.target.value)}
+                    onChange={(event) => saveDraftField("fullName", event.target.value, setFullName)}
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     required
                   />
@@ -2441,7 +2450,7 @@ function ProfileSetupPage() {
                   Country
                   <input
                     value={country}
-                    onChange={(event) => setCountry(event.target.value)}
+                    onChange={(event) => saveDraftField("country", event.target.value, setCountry)}
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     required
                   />
@@ -2451,7 +2460,7 @@ function ProfileSetupPage() {
                   Headline
                   <input
                     value={headline}
-                    onChange={(event) => setHeadline(event.target.value)}
+                    onChange={(event) => saveDraftField("headline", event.target.value, setHeadline)}
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     required
                   />
@@ -2461,7 +2470,7 @@ function ProfileSetupPage() {
                   Languages
                   <input
                     value={languages}
-                    onChange={(event) => setLanguages(event.target.value)}
+                    onChange={(event) => saveDraftField("languages", event.target.value, setLanguages)}
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     placeholder="English, Swahili, Spanish"
                     required
@@ -2472,7 +2481,7 @@ function ProfileSetupPage() {
                   Short bio / description
                   <textarea
                     value={bio}
-                    onChange={(event) => setBio(event.target.value)}
+                    onChange={(event) => saveDraftField("bio", event.target.value, setBio)}
                     className="min-h-[140px] rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     required
                   />
@@ -2506,7 +2515,7 @@ function ProfileSetupPage() {
                   Professional title
                   <input
                     value={professionalTitle}
-                    onChange={(event) => setProfessionalTitle(event.target.value)}
+                    onChange={(event) => saveDraftField("professionalTitle", event.target.value, setProfessionalTitle)}
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     required
                   />
@@ -2516,7 +2525,7 @@ function ProfileSetupPage() {
                   Skills
                   <input
                     value={skills}
-                    onChange={(event) => setSkills(event.target.value)}
+                    onChange={(event) => saveDraftField("skills", event.target.value, setSkills)}
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     placeholder="Design, Web Development, SEO"
                     required
@@ -2529,7 +2538,7 @@ function ProfileSetupPage() {
                     type="number"
                     min="0"
                     value={yearsExperience}
-                    onChange={(event) => setYearsExperience(event.target.value)}
+                    onChange={(event) => saveDraftField("yearsExperience", event.target.value, setYearsExperience)}
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     required
                   />
@@ -2539,7 +2548,7 @@ function ProfileSetupPage() {
                   Portfolio / website link
                   <input
                     value={websiteUrl}
-                    onChange={(event) => setWebsiteUrl(event.target.value)}
+                    onChange={(event) => saveDraftField("websiteUrl", event.target.value, setWebsiteUrl)}
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     placeholder="https://"
                     required
@@ -2550,7 +2559,7 @@ function ProfileSetupPage() {
                   Service categories
                   <input
                     value={categories}
-                    onChange={(event) => setCategories(event.target.value)}
+                    onChange={(event) => saveDraftField("categories", event.target.value, setCategories)}
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     placeholder="Marketing, Web Development, Design"
                     required
@@ -2561,7 +2570,7 @@ function ProfileSetupPage() {
                   Seller description
                   <textarea
                     value={sellerDescription}
-                    onChange={(event) => setSellerDescription(event.target.value)}
+                    onChange={(event) => saveDraftField("sellerDescription", event.target.value, setSellerDescription)}
                     className="min-h-[120px] rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     required
                   />
@@ -2577,7 +2586,7 @@ function ProfileSetupPage() {
                   Buyer type
                   <input
                     value={buyerType}
-                    onChange={(event) => setBuyerType(event.target.value)}
+                    onChange={(event) => saveDraftField("buyerType", event.target.value, setBuyerType)}
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     placeholder="Startup, Enterprise, Agency"
                     required
@@ -2588,7 +2597,7 @@ function ProfileSetupPage() {
                   Common project type
                   <input
                     value={commonProjectType}
-                    onChange={(event) => setCommonProjectType(event.target.value)}
+                    onChange={(event) => saveDraftField("commonProjectType", event.target.value, setCommonProjectType)}
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     placeholder="Website, Branding, Marketing Campaign"
                     required
@@ -2599,7 +2608,7 @@ function ProfileSetupPage() {
                   Location / city
                   <input
                     value={location}
-                    onChange={(event) => setLocation(event.target.value)}
+                    onChange={(event) => saveDraftField("location", event.target.value, setLocation)}
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     required
                   />
@@ -2609,7 +2618,7 @@ function ProfileSetupPage() {
                   Preferred communication note
                   <textarea
                     value={communicationNote}
-                    onChange={(event) => setCommunicationNote(event.target.value)}
+                    onChange={(event) => saveDraftField("communicationNote", event.target.value, setCommunicationNote)}
                     className="min-h-[120px] rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     placeholder="I prefer email and scheduled calls for project discussions."
                     required
