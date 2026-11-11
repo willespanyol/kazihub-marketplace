@@ -9506,6 +9506,16 @@ await sendNotification({
       setErrorText("Your account is suspended. This action is not allowed.");
       return;
     }
+    if (selectedManualPaymentMethod === "Cryptocurrency (manual verification)") {
+      if (paymentReference.trim().length < 20) {
+        setErrorText("Enter a complete blockchain transaction hash (TXID).");
+        return;
+      }
+      if (paymentNote.trim().length < 8) {
+        setErrorText("State the asset, network and amount sent in the payment notes.");
+        return;
+      }
+    }
 
     setSubmittingPayment(true);
     setMessage("");
