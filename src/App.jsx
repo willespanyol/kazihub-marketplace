@@ -9476,6 +9476,8 @@ function OrderDetailsPage() {
 
     if (!error) {
       setOrderFiles(data || []);
+    } else {
+      setErrorText("Could not load order attachments: " + error.message);
     }
 
     setLoadingFiles(false);
@@ -9699,7 +9701,20 @@ function OrderDetailsPage() {
   }
 
   async function handleDeliverOrder() {
-    if (!order) return;
+    if (!order || !user || user.id !== order.seller_id) return;
+    if (order.payment_status !== "paid") {
+      setErrorText("Payment must be verified before you can deliver this order.");
+      return;
+    }
+    if (!["active", "in_progress", "revision_requested"].includes(order.status)) {
+      setErrorText("This order is not ready for delivery.");
+      return;
+    }
+    if (!orderFiles.some((file) => file.file_type === "delivery" || file.file_type === "revision")
+      && deliveryNote.trim().length < 20) {
+      setErrorText("Upload a Delivery File under Order Files or write a delivery note of at least 20 characters before marking this order delivered.");
+      return;
+    }
 
     const success = await updateOrderStatus("delivered", {
       status: "delivered",
@@ -10439,8 +10454,9 @@ for (const admin of admins || []) {
 
       <p className="text-sm text-slate-600">Have a file to deliver? <a href="#order-files-section" className="font-semibold text-primary underline">Upload it under Order Files</a>, select “Delivery File,” and confirm it appears in the file list before marking this order as delivered.</p>
       <button
+        type="button"
         onClick={handleDeliverOrder}
-        disabled={actionLoading}
+        disabled={actionLoading || uploadingFile || loadingFiles || order.payment_status !== "paid"}
         className="rounded-full bg-primary px-6 py-3 font-semibold text-white disabled:opacity-60"
       >
         {actionLoading ? "Working..." : "Mark as Delivered"}
