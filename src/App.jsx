@@ -194,6 +194,7 @@ const unreadNotificationCount = notifications.filter(
           ) : (
             <>
               <Link to="/services">Browse Services</Link>
+              <Link to="/sellers">Find Freelancers</Link>
               <Link to="/categories">Categories</Link>
               <Link to="/project-requests">Project Requests</Link>
               <Link to="/messages" className="inline-flex items-center gap-1"><MessageCircle size={16} /> Messages</Link>
