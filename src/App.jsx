@@ -9,6 +9,8 @@ import PaymentSettingsPage from "./pages/PaymentSettingsPage";
 import AdminReportsPage from "./pages/AdminReportsPage";
 import ConversationOffersPanel from "./components/ConversationOffersPanel";
 import MyOffersPage from "./pages/MyOffersPage";
+import OrderMilestonesPanel from "./components/OrderMilestonesPanel";
+import SellerPortfolioPage from "./pages/SellerPortfolioPage";
 async function sendNotification({ userId, type, title, message, link }) {
   if (!userId) return;
 
@@ -309,7 +311,7 @@ const unreadNotificationCount = notifications.filter(
               ["/seller-dashboard?section=orders", "Orders"], ["/offers", "Sent offers"],
               ["/seller-dashboard?section=payouts", "Earnings"],
               ["/seller-dashboard?section=analytics", "Analytics"],
-              ["/profile-setup", "My profile"], ["/payment-settings", "Payments & verification"], ["/support", "Support"],
+              ["/profile-setup", "My profile"], ["/portfolio", "My portfolio"], ["/payment-settings", "Payments & verification"], ["/support", "Support"],
             ] : profile?.role === "admin" ? [
               ["/admin", "Admin dashboard"], ["/admin/activity", "Activity log"], ["/admin/reports", "Abuse reports"],
               ["/messages", "Messages"], ["/services", "Browse services"],
@@ -10096,6 +10098,8 @@ for (const admin of admins || []) {
         </p>
       )}
 
+      <OrderMilestonesPanel order={order} userId={user.id} />
+
       <div className="grid gap-8 lg:grid-cols-3">
         <section className="lg:col-span-2 rounded-3xl border bg-white p-6 shadow-sm">
           <h2 className="text-2xl font-bold">Order Scope</h2>
@@ -10803,6 +10807,7 @@ function SellerProfilePage() {
   const [sellerProfile, setSellerProfile] = useState(null);
   const [sellerServices, setSellerServices] = useState([]);
   const [sellerReviews, setSellerReviews] = useState([]);
+  const [portfolioProjects, setPortfolioProjects] = useState([]);
   const [loadingSeller, setLoadingSeller] = useState(true);
   const [errorText, setErrorText] = useState("");
 
@@ -10823,6 +10828,11 @@ function SellerProfilePage() {
         .eq("seller_id", id)
         .eq("status", "approved")
         .order("created_at", { ascending: false });
+
+      const {data: portfolioData} = await supabase.from("seller_portfolio_projects")
+        .select("id,title,description,category,skills,external_url,cover_image_path,completed_year")
+        .eq("seller_id",id).eq("published",true).order("created_at",{ascending:false}).limit(24);
+      setPortfolioProjects(portfolioData||[]);
 
       const { data: reviewsData, error: reviewsError } = await supabase
         .from("reviews")
@@ -11007,6 +11017,28 @@ function SellerProfilePage() {
             This public profile shows approved services and ratings only. Buyer order details remain private.
           </p>
         </div>
+      </section>
+
+      <section className="mt-8 rounded-3xl border bg-white p-4 shadow-sm sm:p-6">
+        <h2 className="text-2xl font-bold">Seller portfolio</h2>
+        <p className="mt-2 text-sm text-slate-600">Examples of completed projects shared by this seller.</p>
+        {portfolioProjects.length===0 ? <p className="mt-4 text-sm text-slate-600">No portfolio projects published yet.</p> :
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {portfolioProjects.map(item=>{
+              const url=item.cover_image_path?supabase.storage.from("portfolio-images").getPublicUrl(item.cover_image_path).data.publicUrl:null;
+              return <article key={item.id} className="overflow-hidden rounded-xl border">
+                {url&&<img src={url} alt={item.title} loading="lazy" className="aspect-video w-full object-cover"/>}
+                <div className="space-y-2 p-4">
+                  <h3 className="font-bold">{item.title}</h3>
+                  <p className="text-xs text-slate-500">{item.category}{item.completed_year?" · "+item.completed_year:""}</p>
+                  <p className="whitespace-pre-wrap break-words text-sm">{item.description}</p>
+                  {item.skills&&<p className="text-xs text-slate-600">{item.skills}</p>}
+                  {item.external_url&&<a href={item.external_url} target="_blank" rel="noopener noreferrer nofollow"
+                    className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline">View project website</a>}
+                </div>
+              </article>;
+            })}
+          </div>}
       </section>
 
       <section className="mt-8 rounded-3xl border bg-white p-6 shadow-sm">
@@ -11634,6 +11666,7 @@ export default function App() {
         <Route path="/dashboard-redirect" element={<DashboardRedirectPage />} />
         <Route path="/profile-setup" element={<ProfileSetupPage />} />
         <Route path="/payment-settings" element={<PaymentSettingsPage />} />
+        <Route path="/portfolio" element={<SellerPortfolioPage />} />
         <Route path="/seller-dashboard" element={<SellerDashboardPage />} />
         <Route path="/buyer-dashboard" element={<BuyerDashboardPage />} />
         <Route path="/admin" element={<AdminPage />} />
