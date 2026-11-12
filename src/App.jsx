@@ -11234,8 +11234,7 @@ function AdminActivityPage() {
   useEffect(() => {
     if (!isAuthorized || !selectedConversation) { setMessages([]); return; }
     let mounted = true;
-    supabase.from("direct_messages").select("id,sender_id,message,created_at")
-      .eq("conversation_id", selectedConversation).order("created_at", { ascending: true }).limit(200)
+    supabase.rpc("review_conversation_messages", { p_conversation_id: selectedConversation })
       .then(({ data, error: queryError }) => {
         if (!mounted) return;
         setMessages(data || []);
