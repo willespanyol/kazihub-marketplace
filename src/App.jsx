@@ -2451,12 +2451,15 @@ function ProfileSetupPage() {
     let profileImageUrl = profileData?.profile_image_url || null;
 
     if (profileImageFile) {
-      const safeFileName = profileImageFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const filePath = `${user.id}/${Date.now()}-${safeFileName}`;
-
+      const validationError = validateUpload(profileImageFile,"profile-images");
+      if (validationError) {
+        setErrorText(validationError); setSaving(false);
+        return;
+      }
+      const filePath = uniqueUploadPath(user.id, profileImageFile);
       const { error: uploadError } = await supabase.storage
         .from("profile-images")
-        .upload(filePath, profileImageFile);
+        .upload(filePath, profileImageFile,{contentType:profileImageFile.type,upsert:false});
 
       if (uploadError) {
         setErrorText(uploadError.message);
@@ -3277,8 +3280,10 @@ function SellerDashboardPage() {
     setVerificationMessage("");
     setVerificationError("");
 
-    const safeDocumentName = verificationDocumentFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const documentPath = `${user.id}/${Date.now()}-document-${safeDocumentName}`;
+    const validationError = validateUpload(verificationDocumentFile,"seller-verification-files")
+      || (verificationBusinessFile ? validateUpload(verificationBusinessFile,"seller-verification-files") : null);
+    if (validationError) { setVerificationError(validationError); setSubmittingVerification(false); return; }
+    const documentPath = uniqueUploadPath(user.id, verificationDocumentFile);
 
     const { error: documentUploadError } = await supabase.storage
       .from("seller-verification-files")
@@ -3293,8 +3298,7 @@ function SellerDashboardPage() {
     let businessPath = null;
 
     if (verificationBusinessFile) {
-      const safeBusinessName = verificationBusinessFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      businessPath = `${user.id}/${Date.now()}-business-${safeBusinessName}`;
+      businessPath = uniqueUploadPath(user.id, verificationBusinessFile);
 
       const { error: businessUploadError } = await supabase.storage
         .from("seller-verification-files")
@@ -3350,12 +3354,15 @@ function SellerDashboardPage() {
     let profileImageUrl = profile?.profile_image_url || null;
 
     if (profileImageFile) {
-      const safeFileName = profileImageFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const filePath = `${user.id}/${Date.now()}-${safeFileName}`;
-
+      const validationError = validateUpload(profileImageFile,"profile-images");
+      if (validationError) {
+        setProfileError(validationError); setSavingProfile(false);
+        return;
+      }
+      const filePath = uniqueUploadPath(user.id, profileImageFile);
       const { error: uploadError } = await supabase.storage
         .from("profile-images")
-        .upload(filePath, profileImageFile);
+        .upload(filePath, profileImageFile,{contentType:profileImageFile.type,upsert:false});
 
       if (uploadError) {
         setProfileError(uploadError.message);
@@ -7773,8 +7780,9 @@ function CreateServicePage() {
   async function uploadServiceImage(file, pathPrefix) {
     if (!file) return { publicUrl: null, filePath: null, error: null };
 
-    const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const filePath = `${user.id}/${pathPrefix}-${crypto.randomUUID()}-${safeFileName}`;
+    const validationError=validateUpload(file,"service-media");
+    if(validationError)return {publicUrl:null,filePath:null,error:new Error(validationError)};
+    const filePath=uniqueUploadPath(user.id,file);
 
     const { error: uploadError } = await supabase.storage
       .from("service-media")
@@ -8443,8 +8451,9 @@ function EditServicePage() {
     let finalImageUrl = imageUrl;
 
     if (serviceImageFile) {
-      const safeFileName = serviceImageFile.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-      const storagePath = `${user.id}/${id}/main-${crypto.randomUUID()}-${safeFileName}`;
+      const validationError=validateUpload(serviceImageFile,"service-media");
+      if(validationError){setErrorText(validationError);setSaving(false);return;}
+      const storagePath=uniqueUploadPath(`${user.id}/${id}`,serviceImageFile);
 
       const { error: uploadError } = await supabase.storage
         .from("service-media")
@@ -8509,8 +8518,9 @@ function EditServicePage() {
     if (galleryImageFiles.length > 0) {
       for (let index = 0; index < galleryImageFiles.length; index++) {
         const file = galleryImageFiles[index];
-        const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-        const storagePath = `${user.id}/${id}/gallery-${crypto.randomUUID()}-${safeFileName}`;
+        const validationError=validateUpload(file,"service-media");
+        if(validationError){setErrorText(validationError);setSaving(false);return;}
+        const storagePath=uniqueUploadPath(`${user.id}/${id}`,file);
 
         const { error: uploadError } = await supabase.storage
           .from("service-media")
