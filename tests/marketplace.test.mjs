@@ -163,3 +163,10 @@ test("dispute evidence and status synchronization are shown to order participant
   assert.ok(evidence.includes('order_file_id:fileId||null'));
   assert.ok(!app.includes('.update({\n        status: "disputed",'));
 });
+
+test("seller performance is loaded from authenticated database metrics", () => {
+ const performance=readFileSync(new URL("../src/components/SellerPerformancePanel.jsx",import.meta.url),"utf8");
+ assert.ok(app.includes('<SellerPerformancePanel userId={user?.id} />'));
+ assert.ok(performance.includes('rpc("my_seller_performance")'));
+ assert.ok(performance.includes("Not enough data"));
+});
