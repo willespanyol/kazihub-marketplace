@@ -6892,8 +6892,14 @@ function ConversationPage() {
 
     if (!error) {
       setMessages(data || []);
+      if (user && document.visibilityState==="visible" && (data || []).some(item=>item.sender_id!==user.id && !item.is_read)) {
+        const { error: readError } = await supabase.from("direct_messages")
+          .update({is_read:true}).eq("conversation_id",id)
+          .neq("sender_id",user.id).eq("is_read",false);
+        if (readError) console.warn("Could not mark messages as read:",readError.message);
+      }
     }
-  }, [id]);
+  }, [id,user?.id]);
 
   useEffect(() => {
     function loadConversation() {
