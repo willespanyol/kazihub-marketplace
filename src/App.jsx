@@ -11680,6 +11680,28 @@ function AdminActivityPage() {
 }
 
 
+function AccountRoleRoute({ allowedRoles, children }) {
+  const { user, profile, loading } = useAuth();
+  if (loading) {
+    return <main className="mx-auto max-w-3xl px-5 py-20" role="status" aria-live="polite">
+      <p className="font-semibold text-slate-800">Loading your account...</p>
+    </main>;
+  }
+  if (!user) return <Navigate to="/login" replace />;
+  if (!profile) {
+    return <main className="mx-auto max-w-3xl px-5 py-20" role="alert">
+      <p className="font-semibold text-red-700">Your KaziHub profile could not be loaded.</p>
+      <p className="mt-2 text-sm text-slate-600">Please refresh or contact support if the problem persists.</p>
+    </main>;
+  }
+  if (!allowedRoles.includes(profile.role)) {
+    const destination = profile.role === "admin" ? "/admin" : profile.role === "seller"
+      ? "/seller-dashboard" : "/buyer-dashboard";
+    return <Navigate to={destination} replace />;
+  }
+  return children;
+}
+
 function MobileBottomNavigation() {
   const { user, profile } = useAuth();
   const location = useLocation();
@@ -11760,23 +11782,23 @@ export default function App() {
         <Route path="/dashboard-redirect" element={<DashboardRedirectPage />} />
         <Route path="/profile-setup" element={<ProfileSetupPage />} />
         <Route path="/payment-settings" element={<PaymentSettingsPage />} />
-        <Route path="/portfolio" element={<SellerPortfolioPage />} />
-        <Route path="/availability" element={<SellerAvailabilityPage />} />
-        <Route path="/services/:id/extras" element={<ManageGigExtrasPage />} />
-        <Route path="/seller-dashboard" element={<SellerDashboardPage />} />
-        <Route path="/buyer-dashboard" element={<BuyerDashboardPage />} />
-        <Route path="/admin" element={<AdminPage />} />
-        <Route path="/admin/activity" element={<AdminActivityPage />} />
-        <Route path="/admin/reports" element={<AdminReportsPage />} />
+        <Route path="/portfolio" element={<AccountRoleRoute allowedRoles={["seller"]}><SellerPortfolioPage /></AccountRoleRoute>} />
+        <Route path="/availability" element={<AccountRoleRoute allowedRoles={["seller"]}><SellerAvailabilityPage /></AccountRoleRoute>} />
+        <Route path="/services/:id/extras" element={<AccountRoleRoute allowedRoles={["seller"]}><ManageGigExtrasPage /></AccountRoleRoute>} />
+        <Route path="/seller-dashboard" element={<AccountRoleRoute allowedRoles={["seller"]}><SellerDashboardPage /></AccountRoleRoute>} />
+        <Route path="/buyer-dashboard" element={<AccountRoleRoute allowedRoles={["buyer"]}><BuyerDashboardPage /></AccountRoleRoute>} />
+        <Route path="/admin" element={<AccountRoleRoute allowedRoles={["admin"]}><AdminPage /></AccountRoleRoute>} />
+        <Route path="/admin/activity" element={<AccountRoleRoute allowedRoles={["admin"]}><AdminActivityPage /></AccountRoleRoute>} />
+        <Route path="/admin/reports" element={<AccountRoleRoute allowedRoles={["admin"]}><AdminReportsPage /></AccountRoleRoute>} />
         <Route path="/support" element={<SupportPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/refund-policy" element={<RefundPolicyPage />} />
         <Route path="/payment-policy" element={<PaymentPolicyPage />} />
-        <Route path="/create-service" element={<CreateServicePage />} />
-        <Route path="/edit-service/:id" element={<EditServicePage />} />
+        <Route path="/create-service" element={<AccountRoleRoute allowedRoles={["seller"]}><CreateServicePage /></AccountRoleRoute>} />
+        <Route path="/edit-service/:id" element={<AccountRoleRoute allowedRoles={["seller"]}><EditServicePage /></AccountRoleRoute>} />
         <Route path="/project-requests" element={<ProjectRequestsPage />} />
-        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/checkout" element={<AccountRoleRoute allowedRoles={["buyer"]}><CheckoutPage /></AccountRoleRoute>} />
         <Route path="/orders/:id" element={<OrderDetailsPage />} />
         <Route path="/offers" element={<MyOffersPage />} />
         <Route path="/messages" element={<MessagesPage />} />
