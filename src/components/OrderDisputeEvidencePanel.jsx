@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 
-export default function OrderDisputeEvidencePanel({ order, disputes = [], files = [], userId }) {
+export default function OrderDisputeEvidencePanel({ order, disputes = [], files = [], userId, isAdmin = false }) {
   const [entries, setEntries] = useState([]);
   const [disputeId, setDisputeId] = useState("");
   const [fileId, setFileId] = useState("");
@@ -13,13 +13,13 @@ export default function OrderDisputeEvidencePanel({ order, disputes = [], files 
   const participant = userId && (userId === order?.buyer_id || userId === order?.seller_id);
 
   const load = useCallback(async () => {
-    if (!order?.id || !participant) return;
+    if (!order?.id || (!participant && !isAdmin)) return;
     const {data, error: readError} = await supabase.from("order_dispute_evidence")
       .select("id,dispute_id,order_file_id,submitted_by,description,created_at")
       .eq("order_id",order.id).order("created_at",{ascending:true}).limit(150);
     if (readError) setError(readError.message);
     else setEntries(data || []);
-  },[order?.id,participant]);
+  },[order?.id,participant,isAdmin]);
 
   useEffect(() => { load(); },[load]);
   useEffect(() => {
@@ -47,13 +47,13 @@ export default function OrderDisputeEvidencePanel({ order, disputes = [], files 
     } finally {setBusy(false);}
   }
 
-  if (!participant || !disputes.length) return null;
+  if ((!participant && !isAdmin) || !disputes.length) return null;
   return <section className="mt-6 rounded-2xl border bg-white p-4 shadow-sm sm:p-6" aria-label="Order dispute evidence">
     <h2 className="text-xl font-bold">Dispute evidence</h2>
     <p className="mt-2 text-sm text-slate-600">Attach a file that is already uploaded to this order, or add a written statement. Evidence is retained for case review and cannot be edited or deleted by participants.</p>
     {error && <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
     {notice && <p role="status" className="mt-3 rounded-xl bg-teal-50 p-3 text-sm text-teal-900">{notice}</p>}
-    {eligibleDisputes.length>0 && <form onSubmit={submit} className="mt-5 grid gap-3 rounded-xl bg-slate-50 p-4">
+    {participant && eligibleDisputes.length>0 && <form onSubmit={submit} className="mt-5 grid gap-3 rounded-xl bg-slate-50 p-4">
       <label className="text-sm font-semibold">Dispute
         <select value={disputeId} onChange={e=>setDisputeId(e.target.value)}
          className="mt-2 min-h-11 w-full rounded-xl border bg-white p-3 text-base">
