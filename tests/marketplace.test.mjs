@@ -123,3 +123,12 @@ test("other uploads validate against bucket size and mime restrictions", () => {
  assert.ok(app.includes('validateUpload(serviceImageFile,"service-media")'));
  assert.ok(app.includes('validateUpload(file,"service-media")'));
 });
+
+test("seller vacation mode controls are routed separately from admin", () => {
+ const page=readFileSync(new URL("../src/pages/SellerAvailabilityPage.jsx",import.meta.url),"utf8");
+ assert.ok(app.includes('<Route path="/availability" element={<SellerAvailabilityPage />} />'));
+ assert.ok(page.includes('from("seller_availability").upsert('));
+ assert.ok(page.includes("accepting_orders:accepting"));
+ assert.ok(page.includes("max_active_orders:max"));
+ assert.ok(app.includes("export default function App()"));
+});
