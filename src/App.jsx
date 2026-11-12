@@ -3948,10 +3948,10 @@ function SellerDashboardPage() {
       )}
 
       {selectedRequestForOffer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-5">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-slate-900/60 px-3 py-4 sm:items-center sm:px-5">
           <form
             onSubmit={handleSellerOfferSubmit}
-            className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-xl"
+            className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-4 shadow-xl sm:p-6"
           >
             <div className="flex items-start justify-between gap-5">
               <div>
@@ -6963,7 +6963,7 @@ function ConversationPage() {
       )}
 
       <section aria-label="Conversation messages" className="min-h-64 rounded-2xl border bg-white p-4 sm:p-6">
-      <div className="grid max-h-[55vh] gap-4 overflow-y-auto" aria-live="polite">
+      <div className="grid max-h-[min(55dvh,36rem)] gap-4 overflow-y-auto overscroll-contain" aria-live="polite" aria-relevant="additions">
         {messages.length === 0 ? (
           <div className="rounded-3xl border bg-white p-8 shadow-sm">
             <p className="text-muted">Start with the project scope, deadline, files needed, or a question about this gig. Orders and payments are handled separately through KaziHub.</p>
@@ -6978,7 +6978,7 @@ function ConversationPage() {
                   className={`flex ${isMine ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-3xl px-5 py-4 text-sm leading-7 ${
+                    className={`max-w-[90%] rounded-2xl px-3.5 py-3 text-sm leading-6 sm:max-w-[80%] sm:rounded-3xl sm:px-5 sm:py-4 sm:leading-7 ${
                       isMine ? "bg-primary text-white" : "bg-slate-100 text-slate-800"
                     }`}
                   >
@@ -6995,7 +6995,7 @@ function ConversationPage() {
       </div>
       </section>
 
-      <form onSubmit={handleSendMessage} className="mt-4 grid gap-3 rounded-2xl border bg-white p-4 shadow-sm sm:p-5">
+      <form onSubmit={handleSendMessage} className="mt-4 grid min-w-0 gap-3 rounded-2xl border bg-white p-4 shadow-sm sm:p-5">
         <p className="text-sm font-semibold text-slate-700">Your message</p>
         <textarea
           className="min-h-28 rounded-2xl border bg-slate-50 px-4 py-3 outline-none"
@@ -9065,10 +9065,10 @@ function ProjectRequestsPage() {
       </div>
 
       {selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-5">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-slate-900/60 px-3 py-4 sm:items-center sm:px-5">
           <form
             onSubmit={handleCustomOfferSubmit}
-            className="w-full max-w-2xl rounded-3xl bg-white p-6 shadow-xl"
+            className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-4 shadow-xl sm:p-6"
           >
             <div className="flex items-start justify-between gap-5">
               <div>
@@ -11396,6 +11396,7 @@ function MobileBottomNavigation() {
           const activeSection = new URLSearchParams(location.search).get("section") || "inbox";
           const selected = to === "/" ? path === "/"
             : (section ? path === target && activeSection === section
+              : target === "/seller-dashboard" ? path === target && activeSection === "inbox"
               : path === target || (to === "/messages" && path.startsWith("/messages/")));
           return <Link key={to} to={to} aria-current={selected ? "page" : undefined}
             className={`flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-[11px] font-semibold leading-tight focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${selected ? "text-primary" : "text-slate-500"}`}>
