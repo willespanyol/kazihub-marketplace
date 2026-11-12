@@ -14,6 +14,7 @@ import SellerPortfolioPage from "./pages/SellerPortfolioPage";
 import MarketplaceSearchPage from "./pages/MarketplaceSearchPage";
 import FindSellersPage from "./pages/FindSellersPage";
 import SellerAvailabilityPage from "./pages/SellerAvailabilityPage";
+import OrderManagementPanel from "./components/OrderManagementPanel";
 import { validateUpload, uniqueUploadPath, readableUploadError } from "./lib/uploadUtils";
 async function sendNotification({ userId, type, title, message, link }) {
   if (!userId) return;
@@ -10115,6 +10116,7 @@ for (const admin of admins || []) {
       )}
 
       <OrderMilestonesPanel order={order} userId={user.id} />
+      <OrderManagementPanel order={order} userId={user.id} isAdmin={profile?.role==="admin"} />
 
       <div className="grid gap-8 lg:grid-cols-3">
         <section className="lg:col-span-2 rounded-3xl border bg-white p-6 shadow-sm">
