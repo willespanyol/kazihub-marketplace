@@ -61,6 +61,12 @@ function Header() {
   const [notifications, setNotifications] = useState([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handleEscape = (event) => { if (event.key === "Escape") setMobileMenuOpen(false); };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [mobileMenuOpen]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   let dashboardLink = "/buyer-dashboard";
 
@@ -200,6 +206,8 @@ const unreadNotificationCount = notifications.filter(
     }}
     className="relative flex min-h-11 min-w-11 items-center justify-center rounded-full bg-slate-100 text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     aria-label="Notifications"
+    aria-expanded={notificationsOpen}
+    aria-haspopup="true"
   >
     <Bell size={18} />
 
@@ -11383,7 +11391,12 @@ function MobileBottomNavigation() {
     <nav aria-label="Quick navigation" className="mobile-bottom-navigation fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 shadow-[0_-3px_16px_rgba(15,23,42,.07)] backdrop-blur-lg lg:hidden">
       <div className="mx-auto grid max-w-xl grid-cols-5 items-stretch px-1">
         {items.map(({ to, label, icon: Icon }) => {
-          const selected = to === "/" ? path === "/" : (path === to.split("?")[0] || (to === "/messages" && path.startsWith("/messages/")));
+          const target = to.split("?")[0];
+          const section = new URLSearchParams(to.split("?")[1] || "").get("section");
+          const activeSection = new URLSearchParams(location.search).get("section") || "inbox";
+          const selected = to === "/" ? path === "/"
+            : (section ? path === target && activeSection === section
+              : path === target || (to === "/messages" && path.startsWith("/messages/")));
           return <Link key={to} to={to} aria-current={selected ? "page" : undefined}
             className={`flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-[11px] font-semibold leading-tight focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary ${selected ? "text-primary" : "text-slate-500"}`}>
             <Icon size={21} strokeWidth={selected ? 2.5 : 2} aria-hidden="true" />
@@ -11395,11 +11408,22 @@ function MobileBottomNavigation() {
   );
 }
 
+function RouteAccessibility() {
+  const location = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [location.pathname]);
+  return null;
+}
+
 function App() {
   return (
     <BrowserRouter>
+      <RouteAccessibility />
+      <a href="#main-content" className="skip-to-main">Skip to main content</a>
       <Header />
       <AccountStatusBanner />
+      <div id="main-content" tabIndex={-1} className="min-w-0">
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/services" element={<ServicesPage />} />
@@ -11431,6 +11455,7 @@ function App() {
         <Route path="/messages/:id" element={<ConversationPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      </div>
       <Footer />
       <MobileBottomNavigation />
     </BrowserRouter>
