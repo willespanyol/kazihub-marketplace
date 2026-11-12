@@ -6825,6 +6825,13 @@ function ConversationPage() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [errorText, setErrorText] = useState("");
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [reported, setReported] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportCategory, setReportCategory] = useState("spam");
+  const [reportDetails, setReportDetails] = useState("");
+  const [accountActionBusy, setAccountActionBusy] = useState(false);
+  const [accountNotice, setAccountNotice] = useState("");
 
   const fetchConversation = useCallback(async () => {
     if (!id) {
@@ -6874,10 +6881,57 @@ function ConversationPage() {
     loadConversation();
   }, [id, user, fetchConversation, fetchMessages]);
 
+  useEffect(() => {
+    if (!user || !conversation || (conversation.buyer_id !== user.id && conversation.seller_id !== user.id)) return;
+    const other = conversation.buyer_id === user.id ? conversation.seller_id : conversation.buyer_id;
+    let active = true;
+    const fetchBlocks = async () => {
+      const { data } = await supabase.from("account_blocks").select("blocker_id,blocked_id")
+        .eq("blocker_id",user.id).eq("blocked_id",other);
+      if (active) setIsBlocked((data||[]).length>0);
+    };
+    fetchBlocks();
+    // Polling provides a fallback where Supabase Realtime is not enabled for these tables.
+    const interval = window.setInterval(() => { fetchMessages(); fetchBlocks(); }, 12000);
+    return () => { active=false; window.clearInterval(interval); };
+  }, [user?.id, conversation?.id, conversation?.buyer_id, conversation?.seller_id, fetchMessages]);
+
+  async function toggleBlock() {
+    if (!user || !conversation) return;
+    const other = conversation.buyer_id === user.id ? conversation.seller_id : conversation.buyer_id;
+    setAccountActionBusy(true); setErrorText(""); setAccountNotice("");
+    const operation = isBlocked
+      ? supabase.from("account_blocks").delete().eq("blocker_id",user.id).eq("blocked_id",other)
+      : supabase.from("account_blocks").insert({blocker_id:user.id,blocked_id:other});
+    const { error } = await operation;
+    if (error) setErrorText(error.message);
+    else { setIsBlocked(!isBlocked); setAccountNotice(isBlocked ? "Account unblocked." : "Account blocked. Direct messages between these accounts are now disabled."); }
+    setAccountActionBusy(false);
+  }
+
+  async function handleReport(event) {
+    event.preventDefault();
+    if (!user || !conversation || reportDetails.trim().length<12) {
+      setErrorText("Provide at least 12 characters describing the issue."); return;
+    }
+    const other = conversation.buyer_id === user.id ? conversation.seller_id : conversation.buyer_id;
+    setAccountActionBusy(true); setErrorText("");
+    const { error } = await supabase.from("marketplace_reports").insert({
+      reporter_id:user.id,reported_user_id:other,conversation_id:conversation.id,
+      category:reportCategory,details:reportDetails.trim()
+    });
+    if (error) setErrorText(error.message);
+    else {
+      setReported(true); setReportOpen(false); setReportDetails("");
+      setAccountNotice("Report submitted to KaziHub's administrator for review.");
+    }
+    setAccountActionBusy(false);
+  }
+
   async function handleSendMessage(event) {
     event.preventDefault();
 
-    if (!user || !conversation || !newMessage.trim()) return;
+    if (!user || !conversation || !newMessage.trim() || isBlocked) return;
 
     setSendingMessage(true);
     setErrorText("");
@@ -6968,7 +7022,38 @@ function ConversationPage() {
             Conversation updated {conversation.updated_at ? new Date(conversation.updated_at).toLocaleString() : "Unknown"}.
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" disabled={accountActionBusy}
+            onClick={toggleBlock}
+            className="min-h-11 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+            {isBlocked ? "Unblock account" : "Block account"}
+          </button>
+          <button type="button" disabled={accountActionBusy || reported}
+            onClick={() => setReportOpen((open)=>!open)}
+            className="min-h-11 rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50">
+            {reported ? "Report submitted" : "Report conversation"}
+          </button>
+        </div>
       </div>
+
+      {accountNotice && <p role="status" className="mb-4 rounded-xl bg-teal-50 p-3 text-sm font-medium text-teal-900">{accountNotice}</p>}
+      {reportOpen && <form onSubmit={handleReport} className="mb-5 grid gap-3 rounded-2xl border border-red-200 bg-white p-4">
+        <h2 className="text-lg font-semibold">Report this conversation</h2>
+        <p className="text-sm text-slate-600">An administrator can review the report and associated conversation. Reports are confidential and do not automatically suspend accounts.</p>
+        <label className="text-sm font-semibold">Reason
+          <select className="mt-2 min-h-11 w-full rounded-xl border p-3 text-base" value={reportCategory} onChange={event=>setReportCategory(event.target.value)}>
+            <option value="spam">Spam</option><option value="harassment">Harassment</option>
+            <option value="fraud">Fraud or scam</option><option value="off_platform_payment">Off-platform payment request</option>
+            <option value="inappropriate_content">Inappropriate content</option><option value="other">Other</option>
+          </select>
+        </label>
+        <label className="text-sm font-semibold">Details
+          <textarea required minLength={12} maxLength={2000} value={reportDetails} onChange={event=>setReportDetails(event.target.value)}
+            className="mt-2 min-h-28 w-full rounded-xl border p-3 text-base" placeholder="Describe what happened and which messages are involved."/>
+        </label>
+        <div className="flex gap-2"><button disabled={accountActionBusy} className="min-h-11 rounded-xl bg-red-700 px-4 font-semibold text-white disabled:opacity-50">Submit report</button>
+        <button type="button" onClick={()=>setReportOpen(false)} className="min-h-11 rounded-xl border px-4">Cancel</button></div>
+      </form>}
 
       {errorText && (
         <p className="mb-6 rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700">
@@ -7009,6 +7094,7 @@ function ConversationPage() {
       </div>
       </section>
 
+      {isBlocked && <p role="status" className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">This account is blocked. Unblock it to resume messaging.</p>}
       <form onSubmit={handleSendMessage} className="mt-4 grid min-w-0 gap-3 rounded-2xl border bg-white p-4 shadow-sm sm:p-5">
         <p className="text-sm font-semibold text-slate-700">Your message</p>
         <textarea
@@ -7022,7 +7108,7 @@ function ConversationPage() {
         />
         <p className="text-right text-xs text-slate-500">{newMessage.length} / 5,000 characters</p>
         <button
-          disabled={sendingMessage || !newMessage.trim()}
+          disabled={sendingMessage || !newMessage.trim() || isBlocked}
           className="inline-flex items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white disabled:opacity-60"
         >
           {sendingMessage ? "Sending..." : "Send Message"}
