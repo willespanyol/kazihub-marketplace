@@ -4197,6 +4197,10 @@ function SellerDashboardPage() {
                           Edit
                         </Link>
 
+                        <Link to={`/services/${offer.id}/extras`}
+                          className="rounded-full border border-teal-300 px-4 py-2 text-xs font-semibold text-teal-800">
+                          Gig Extras
+                        </Link>
                         {offer.status === "approved" && (
                           <Link
                             to={`/services/${offer.id}`}
