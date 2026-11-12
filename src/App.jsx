@@ -10169,7 +10169,7 @@ for (const admin of admins || []) {
                       {payoutDestinations.map(item=><option key={item.id} value={item.id}>{item.method.toUpperCase()} — {item.account_identifier}</option>)}
                     </select>
                   </label>
-                  <p className="text-xs text-slate-600">{payoutPhoneVerified ? "Phone verified" : "Phone verification required before payout."} <Link className="font-semibold text-primary underline" to="/payment-settings">Manage payout methods and verify phone</Link></p>
+                  <p className="text-xs text-slate-600">{payoutPhoneVerified ? "Phone verified" : "Phone verification required before payout."} A fresh SMS payout-security code is also required for each request (valid for 10 minutes). <Link className="font-semibold text-primary underline" to={`/payment-settings?return=/orders/${order.id}`}>Manage payout methods and send payout security code</Link></p>
                   {order.payout_rejection_reason && (
                     <div className="rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700">
                       Previous payout request was rejected.
