@@ -11217,7 +11217,6 @@ function PaymentPolicyPage() {
   );
 }
 
-export default 
 function AdminActivityPage() {
   const { user, profile, loading: authLoading } = useAuth();
   const [activity, setActivity] = useState([]);
@@ -11417,7 +11416,7 @@ function RouteAccessibility() {
   return null;
 }
 
-function App() {
+export default function App() {
   return (
     <BrowserRouter>
       <RouteAccessibility />
