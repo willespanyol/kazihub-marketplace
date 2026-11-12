@@ -12,6 +12,7 @@ const steps=[
 export default function OrderManagementPanel({order,userId,isAdmin=false}){
  const [requests,setRequests]=useState([]),[reason,setReason]=useState(""),[reply,setReply]=useState("");
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[success,setSuccess]=useState("");
+ const [adminDecisionNote,setAdminDecisionNote]=useState("");
  const participant=userId===order?.buyer_id||userId===order?.seller_id;
  const eligible=participant&&!["completed","cancelled"].includes(order.status)&&order.payout_status!=="paid";
  const load=useCallback(async()=>{
@@ -33,6 +34,12 @@ export default function OrderManagementPanel({order,userId,isAdmin=false}){
   const {error:e}=await supabase.rpc("request_order_cancellation",{p_order_id:order.id,p_reason:reason.trim()});
   if(e)throw e;
  });};
+ const adminResolve=(item,cancel)=>run(async()=>{
+  const {error:e}=await supabase.rpc("resolve_order_cancellation",{
+    p_request_id:item.id,p_cancel_unpaid:cancel,p_note:adminDecisionNote.trim()
+  });if(e)throw e;
+  setAdminDecisionNote("");
+ });
  const respond=(item,agree)=>run(async()=>{
   const {error:e}=await supabase.rpc("respond_order_cancellation",{p_request_id:item.id,p_agree:agree,p_note:reply.trim()});
   if(e)throw e;
@@ -70,6 +77,23 @@ export default function OrderManagementPanel({order,userId,isAdmin=false}){
      </div>
     </div>}
     {item.status==="admin_review"&&<p className="mt-2 text-xs font-medium text-amber-800">Awaiting administrator payment/refund review. Do not assume funds have been refunded.</p>}
+    {item.status==="admin_review"&&isAdmin&&<div className="mt-3 space-y-3 rounded-lg border bg-slate-50 p-3">
+      <p className="text-sm font-semibold">Administrator cancellation decision</p>
+      <label className="block text-sm">Decision note
+       <textarea minLength={10} maxLength={1000} value={adminDecisionNote} onChange={e=>setAdminDecisionNote(e.target.value)}
+        className="mt-1 min-h-20 w-full rounded-lg border bg-white p-3 text-base"/>
+      </label>
+      <div className="flex flex-wrap gap-2">
+       <button type="button" disabled={busy||adminDecisionNote.trim().length<10||
+         !["unpaid","payment_rejected"].includes(order.payment_status)||order.status!=="payment_pending"}
+        onClick={()=>adminResolve(item,true)} className="min-h-11 rounded-xl bg-red-700 px-4 text-sm font-semibold text-white disabled:opacity-50">
+        Cancel unpaid order
+       </button>
+       <button type="button" disabled={busy||adminDecisionNote.trim().length<10} onClick={()=>adminResolve(item,false)}
+        className="min-h-11 rounded-xl border px-4 text-sm font-semibold disabled:opacity-50">Close request without cancelling order</button>
+      </div>
+      <p className="text-xs text-slate-600">Paid or payment-submitted orders must have payment/refund status reconciled before cancellation. The system never automatically refunds funds.</p>
+    </div>}
    </div>)}
    {requests.length===0&&<p className="mt-3 text-sm text-slate-600">No cancellation requests have been submitted.</p>}
    {eligible&&!active&&<form onSubmit={request} className="mt-4 space-y-3 rounded-xl bg-slate-50 p-4">
