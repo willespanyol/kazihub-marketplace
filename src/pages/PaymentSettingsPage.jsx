@@ -22,16 +22,22 @@ export default function PaymentSettingsPage() {
   const [confirmedPhone, setConfirmedPhone] = useState("");
   const [code, setCode] = useState("");
   const [codeSent, setCodeSent] = useState(false);
+  const [phoneFactor, setPhoneFactor] = useState(null);
+  const [mfaFactorId, setMfaFactorId] = useState("");
+  const [mfaChallengeId, setMfaChallengeId] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaReady, setMfaReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     if (!user) return;
-    const [settings, preferences, authResult] = await Promise.all([
+    const [settings, preferences, authResult, factors] = await Promise.all([
       supabase.from("payout_destinations").select("id,method,account_identifier,account_name,is_default,created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("buyer_payment_preferences").select("preferred_method").eq("user_id",user.id).maybeSingle(),
       supabase.auth.getUser(),
+      supabase.auth.mfa.listFactors(),
     ]);
     if (settings.error) setError(settings.error.message);
     setDestinations(settings.data || []);
@@ -40,6 +46,8 @@ export default function PaymentSettingsPage() {
     setConfirmedPhone(verified?.phone_confirmed_at && verified?.phone ? verified.phone : "");
     const draft = sessionStorage.getItem("kazihub_signup_phone") || "";
     setPhone(verified?.phone || draft);
+    const existing = (factors.data?.phone || []).find(item=>item.status==="verified" && item.phone===verified?.phone);
+    setPhoneFactor(existing || null);
   }, [user]);
 
   useEffect(() => { load(); }, [load]);
@@ -68,6 +76,36 @@ export default function PaymentSettingsPage() {
       sessionStorage.removeItem("kazihub_signup_phone");
       setCode(""); setCodeSent(false);
     }, "Phone verified successfully.");
+  }
+  async function startPayoutChallenge() {
+    if (!confirmedPhone) { setError("Confirm your account phone first."); return; }
+    await perform(async () => {
+      let factorId = phoneFactor?.id;
+      if (!factorId) {
+        const enrollment = await supabase.auth.mfa.enroll({ factorType: "phone", phone: confirmedPhone });
+        if (enrollment.error) throw enrollment.error;
+        factorId = enrollment.data.id;
+      }
+      const challenge = await supabase.auth.mfa.challenge({ factorId });
+      if (challenge.error) throw challenge.error;
+      setMfaFactorId(factorId);
+      setMfaChallengeId(challenge.data.id);
+      setMfaCode("");
+      setMfaReady(false);
+    }, "A payout security code was requested. Enter the SMS code below.");
+  }
+  async function verifyPayoutChallenge(event) {
+    event.preventDefault();
+    if (!mfaFactorId || !mfaChallengeId) return;
+    await perform(async () => {
+      const verified = await supabase.auth.mfa.verify({
+        factorId: mfaFactorId, challengeId: mfaChallengeId, code: mfaCode.trim()
+      });
+      if (verified.error) throw verified.error;
+      setMfaCode("");
+      setMfaChallengeId("");
+      setMfaReady(true);
+    }, "Payout phone security check passed. Submit one payout request within 10 minutes.");
   }
   async function saveDestination(event) {
     event.preventDefault();
@@ -134,6 +172,27 @@ export default function PaymentSettingsPage() {
         <button disabled={busy} className="min-h-11 rounded-xl border border-primary px-5 py-3 font-semibold text-primary disabled:opacity-50">Verify phone</button>
       </form>}
     </section>
+    {profile?.role === "seller" && <section className="rounded-2xl border border-teal-200 bg-white p-4 shadow-sm sm:p-6">
+      <h2 className="text-xl font-bold">Payout security code</h2>
+      <p className="mt-2 text-sm text-slate-600">Before each payout request, complete a fresh phone MFA code. Each verified code is valid for one payout request within 10 minutes. You must first verify your account phone above.</p>
+      <p className="mt-2 text-sm font-medium">{phoneFactor ? "Phone payout factor enrolled" : "Phone payout factor not yet enrolled"}</p>
+      <button type="button" disabled={busy || !confirmedPhone} onClick={startPayoutChallenge}
+        className="mt-4 min-h-11 w-full rounded-xl bg-primary px-5 py-3 font-semibold text-white disabled:opacity-50 sm:w-auto">
+        {phoneFactor ? "Send payout security code" : "Enroll phone and send code"}
+      </button>
+      {mfaChallengeId && <form onSubmit={verifyPayoutChallenge} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+        <label className="flex-1 text-sm font-semibold">Payout security code
+          <input inputMode="numeric" autoComplete="one-time-code" maxLength={8} value={mfaCode}
+            onChange={event=>setMfaCode(event.target.value)} required placeholder="SMS code"
+            className="mt-2 min-h-11 w-full rounded-xl border px-3 py-3 text-base" />
+        </label>
+        <button disabled={busy} className="min-h-11 rounded-xl border border-primary px-5 py-3 font-semibold text-primary disabled:opacity-50">Confirm payout code</button>
+      </form>}
+      {mfaReady && <div role="status" className="mt-4 rounded-xl bg-teal-50 p-3 text-sm text-teal-900">
+        Security code verified. You can submit one eligible payout request within 10 minutes.
+        <Link className="ml-2 font-bold underline" to={/^\/orders\/[a-f0-9-]{36}$/i.test(new URLSearchParams(window.location.search).get("return") || "") ? new URLSearchParams(window.location.search).get("return") : "/seller-dashboard"}>Return to your order</Link>
+      </div>}
+    </section>}
     <section className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
       <h2 className="text-xl font-bold">Seller payout destinations</h2>
       <p className="mt-2 text-sm text-slate-600">KaziHub retains 20% of the service price; the seller's earnings are 80% before any separately disclosed payment-provider fees. Saved details do not mean PayPal or Payoneer is connected.</p>
