@@ -9,27 +9,19 @@ React/Vite frontend with a Supabase backend, configured for deployment from GitH
 3. Copy `.env.example` to `.env.local` and populate the Supabase project URL and **publishable/anon** key (never use a service-role or secret key in the frontend).
 4. Run `npm run dev`.
 
-## Netlify (existing site: kazihub-marketplace)
+## Vercel (existing KaziHub project)
 
 - Repository: `willespanyol/kazihub-marketplace`
-- Branch: `main`
-- Base directory: repository root
+- Production branch: `main`
+- Framework preset: Vite
 - Build command: `npm run build`
-- Publish directory: `dist`
-- SPA routes: handled by `netlify.toml`
-- Node.js: choose Node 22 or a compatible newer LTS version in Netlify
-
-In **Netlify > Project configuration > Environment variables**, add:
-
-- `VITE_SUPABASE_URL` — Supabase project API URL
-- `VITE_SUPABASE_ANON_KEY` — publishable (or legacy anon) key
-
-Vite embeds variables with the `VITE_` prefix into browser JavaScript. These variables must not contain secrets. Netlify must have them at build time; environment values in `.env.local` are intentionally excluded from the repository.
-
-To retain the current domain and project settings, link the GitHub repository from the **existing** Netlify project (`kazihub-marketplace`). Do not create a new Netlify site.
+- Output directory: `dist`
+- Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as project environment variables. Never place secret/service-role keys in variables with a `VITE_` prefix.
+- Configure SPA fallback routing in `vercel.json`.
+- Preserve the existing Vercel project and its `kazihub.site` domain.
 
 ## Deployment
 
-Push to `main`; after Netlify is linked, the existing site will build and deploy automatically. Verify authentication, marketplace listings, and client-side routes after deployment.
+Push to `main`; if the existing Vercel project has GitHub integration and automatic production deployments enabled, Vercel builds the commit. Check the actual Vercel deployment and test authentication, marketplace listings, and client-side routes.
 
-The Truehost/cPanel deployment artifacts have been excluded; no Apache `.htaccess` configuration is required on Netlify.
+The Truehost/cPanel and Netlify deployment artifacts are not used for production.
