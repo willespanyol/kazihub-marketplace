@@ -193,7 +193,7 @@ const unreadNotificationCount = notifications.filter(
               <Link to="/messages" className="inline-flex items-center gap-1"><MessageCircle size={16} /> Messages</Link>
               <Link to="/support">Support</Link>
               {user && <Link to="/profile-setup">Profile</Link>}
-              {profile?.role === "admin" && <><Link to="/admin">Admin</Link><Link to="/admin/activity">Activity</Link></>}
+              {profile?.role === "admin" && <><Link to="/admin">Admin</Link><Link to="/admin/activity">Activity</Link><Link to="/admin/reports">Reports</Link></>}
             </>
           )}
         </nav>
