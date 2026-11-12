@@ -97,3 +97,12 @@ test("public discovery is server-side, paginated and keeps admin UI separate", (
  assert.ok(search.includes("aria-label=\"Search results pages\""));
  assert.ok(app.includes("export default function App()"));
 });
+
+test("public freelancer directory is indexed server-side and not an admin page", () => {
+ const sellers=readFileSync(new URL("../src/pages/FindSellersPage.jsx",import.meta.url),"utf8");
+ assert.ok(app.includes('<Route path="/sellers" element={<FindSellersPage />} />'));
+ assert.ok(sellers.includes('rpc("search_marketplace_sellers"'));
+ assert.ok(sellers.includes("p_page_size:PER_PAGE"));
+ assert.ok(sellers.includes("p_verified_only:verified"));
+ assert.ok(app.includes("export default function App()"));
+});
