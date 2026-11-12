@@ -65,3 +65,11 @@ test("conversation offers render only within an authorized conversation", () => 
   assert.ok(page.includes('rpc("respond_conversation_offer"'));
   assert.ok(page.includes("navigate(`/orders/${data}`)"));
 });
+
+test("offer comparison route is available without making the admin page default", () => {
+  const offers = readFileSync(new URL("../src/pages/MyOffersPage.jsx", import.meta.url), "utf8");
+  assert.ok(app.includes('<Route path="/offers" element={<MyOffersPage />} />'));
+  assert.ok(offers.includes('rpc(method,args)'));
+  assert.ok(offers.includes("navigate(`/orders/${data}`)"));
+  assert.ok(app.includes("export default function App()"));
+});
