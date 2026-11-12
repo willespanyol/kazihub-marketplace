@@ -73,3 +73,16 @@ test("offer comparison route is available without making the admin page default"
   assert.ok(offers.includes("navigate(`/orders/${data}`)"));
   assert.ok(app.includes("export default function App()"));
 });
+
+test("milestones and seller portfolios have dedicated pages without altering the marketplace default route", () => {
+ const milestones=readFileSync(new URL("../src/components/OrderMilestonesPanel.jsx",import.meta.url),"utf8");
+ const portfolios=readFileSync(new URL("../src/pages/SellerPortfolioPage.jsx",import.meta.url),"utf8");
+ assert.ok(app.includes('<Route path="/portfolio" element={<SellerPortfolioPage />} />'));
+ assert.ok(app.includes('<OrderMilestonesPanel order={order} userId={user.id} />'));
+ assert.ok(app.includes("export default function App()"));
+ assert.ok(milestones.includes('rpc("propose_order_milestones"'));
+ assert.ok(milestones.includes('rpc("review_order_milestone_plan"'));
+ assert.ok(milestones.includes('rpc("update_order_milestone_progress"'));
+ assert.ok(portfolios.includes('from("seller_portfolio_projects")'));
+ assert.ok(portfolios.includes('storage.from("portfolio-images")'));
+});
