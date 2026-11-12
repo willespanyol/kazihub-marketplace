@@ -5,6 +5,7 @@ import { categories } from "./data/categories";
 import { services } from "./data/services";
 import { useAuth } from "./context/useAuth";
 import { supabase } from "./lib/supabaseClient";
+import PaymentSettingsPage from "./pages/PaymentSettingsPage";
 async function sendNotification({ userId, type, title, message, link }) {
   if (!userId) return;
 
@@ -305,15 +306,15 @@ const unreadNotificationCount = notifications.filter(
               ["/seller-dashboard?section=orders", "Orders"],
               ["/seller-dashboard?section=payouts", "Earnings"],
               ["/seller-dashboard?section=analytics", "Analytics"],
-              ["/profile-setup", "My profile"], ["/support", "Support"],
+              ["/profile-setup", "My profile"], ["/payment-settings", "Payments & verification"], ["/support", "Support"],
             ] : profile?.role === "admin" ? [
               ["/admin", "Admin dashboard"], ["/admin/activity", "Activity log"],
               ["/messages", "Messages"], ["/services", "Browse services"],
-              ["/profile-setup", "My profile"], ["/support", "Support"],
+              ["/profile-setup", "My profile"], ["/payment-settings", "Payments & verification"], ["/support", "Support"],
             ] : [
               ["/", "Home"], ["/services", "Browse services"], ["/categories", "Categories"],
               ["/project-requests", "Project requests"], ["/messages", "Messages"],
-              ...(user ? [["/buyer-dashboard", "My dashboard"], ["/profile-setup", "My profile"]] : [["/login", "Sign in"], ["/signup", "Join KaziHub"]]),
+              ...(user ? [["/buyer-dashboard", "My dashboard"], ["/profile-setup", "My profile"], ["/payment-settings", "Payments & verification"]] : [["/login", "Sign in"], ["/signup", "Join KaziHub"]]),
               ["/support", "Support"],
             ]).map(([href, label]) => (
               <Link key={href} to={href} onClick={() => setMobileMenuOpen(false)}
@@ -9195,6 +9196,10 @@ function OrderDetailsPage() {
   const [selectedManualPaymentMethod, setSelectedManualPaymentMethod] = useState("Remitly to M-Pesa");
   const [submittingPayment, setSubmittingPayment] = useState(false);
   const [payoutNote, setPayoutNote] = useState("");
+  const [payoutDestinations, setPayoutDestinations] = useState([]);
+  const [selectedPayoutDestinationId, setSelectedPayoutDestinationId] = useState("");
+  const [payoutPhoneVerified, setPayoutPhoneVerified] = useState(false);
+  const [payoutRecipient, setPayoutRecipient] = useState(null);
   const [requestingPayout, setRequestingPayout] = useState(false);
   const [orderFiles, setOrderFiles] = useState([]);
   const [loadingFiles, setLoadingFiles] = useState(true);
@@ -9787,6 +9792,33 @@ for (const admin of admins || []) {
     setSubmittingPayment(false);
   }
 
+  useEffect(() => {
+    if (!user || !order) return;
+    let active = true;
+    const loadPayout = async () => {
+      if (order.seller_id === user.id) {
+        const [destinationsResult, identity] = await Promise.all([
+          supabase.from("payout_destinations").select("id,method,account_identifier,account_name,is_default")
+            .eq("user_id",user.id).order("is_default",{ascending:false}),
+          supabase.auth.getUser(),
+        ]);
+        if (!active) return;
+        setPayoutDestinations(destinationsResult.data || []);
+        setSelectedPayoutDestinationId(current =>
+          (destinationsResult.data || []).some(d=>d.id===current) ? current :
+          ((destinationsResult.data || []).find(d=>d.is_default)?.id || destinationsResult.data?.[0]?.id || ""));
+        setPayoutPhoneVerified(Boolean(identity.data?.user?.phone && identity.data?.user?.phone_confirmed_at));
+      }
+      if (profile?.role === "admin" && order.payout_destination_id) {
+        const result = await supabase.from("payout_destinations").select("method,account_identifier,account_name")
+          .eq("id",order.payout_destination_id).eq("user_id",order.seller_id).maybeSingle();
+        if (active) setPayoutRecipient(result.data || null);
+      }
+    };
+    loadPayout();
+    return () => { active = false; };
+  }, [user, order?.id, order?.payout_destination_id, order?.seller_id, profile?.role]);
+
   async function handleRequestPayout(event) {
     event.preventDefault();
 
@@ -9811,6 +9843,14 @@ for (const admin of admins || []) {
       setErrorText("Your account is suspended. This action is not allowed.");
       return;
     }
+    if (!payoutPhoneVerified) {
+      setErrorText("Verify your phone number before requesting a payout. Open Payments & verification.");
+      return;
+    }
+    if (!selectedPayoutDestinationId) {
+      setErrorText("Choose a saved payout destination in Payments & verification.");
+      return;
+    }
 
     setRequestingPayout(true);
     setMessage("");
@@ -9820,7 +9860,8 @@ for (const admin of admins || []) {
       .from("orders")
       .update({
         payout_status: "requested",
-        payout_method: "Manual payout",
+        payout_destination_id: selectedPayoutDestinationId,
+        payout_method: payoutDestinations.find(d=>d.id===selectedPayoutDestinationId)?.method || "Manual payout",
         payout_note: payoutNote.trim() || null,
         payout_rejection_reason: null,
         payout_requested_at: new Date().toISOString(),
@@ -10108,6 +10149,14 @@ for (const admin of admins || []) {
 
               {(order.payout_status === "available" || (order.payout_status === "waiting_period" && order.payout_available_at && new Date(order.payout_available_at) <= new Date())) && (
                 <form onSubmit={handleRequestPayout} className="mt-5 grid gap-3">
+                  <p className="text-sm text-slate-600">KaziHub retains 20% of the order total. The payout amount shown here is your 80% share before separate provider charges.</p>
+                  <label className="text-sm font-semibold text-slate-700">Saved payout destination
+                    <select className="mt-2 min-h-11 w-full rounded-xl border px-3 py-3 text-base" value={selectedPayoutDestinationId} onChange={event=>setSelectedPayoutDestinationId(event.target.value)}>
+                      <option value="">Choose payout method</option>
+                      {payoutDestinations.map(item=><option key={item.id} value={item.id}>{item.method.toUpperCase()} — {item.account_identifier}</option>)}
+                    </select>
+                  </label>
+                  <p className="text-xs text-slate-600">{payoutPhoneVerified ? "Phone verified" : "Phone verification required before payout."} <Link className="font-semibold text-primary underline" to="/payment-settings">Manage payout methods and verify phone</Link></p>
                   {order.payout_rejection_reason && (
                     <div className="rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700">
                       Previous payout request was rejected.
@@ -10117,13 +10166,13 @@ for (const admin of admins || []) {
 
                   <textarea
                     className="min-h-24 rounded-xl border bg-white px-4 py-3 text-sm outline-none"
-                    placeholder="Optional payout note. Add preferred payout method, account details, or any payout instructions."
+                    placeholder="Optional payout note (do not enter passwords or account numbers)."
                     value={payoutNote}
                     onChange={(event) => setPayoutNote(event.target.value)}
                   aria-label="Optional payout note. Add preferred payout method, account details, or any payout instructions." />
 
                   <button
-                    disabled={requestingPayout || isSuspended(profile)}
+                    disabled={requestingPayout || isSuspended(profile) || !payoutPhoneVerified || !selectedPayoutDestinationId}
                     className="rounded-full bg-primary px-6 py-3 font-semibold text-white disabled:opacity-60"
                   >
                     {requestingPayout ? "Submitting..." : "Request Payout"}
@@ -10131,6 +10180,15 @@ for (const admin of admins || []) {
                 </form>
               )}
 
+              {profile?.role === "admin" && order.payout_destination_id && (
+                <div className="mt-4 rounded-xl border border-teal-200 bg-teal-50 p-4 text-sm">
+                  <p className="font-bold">Seller payout destination</p>
+                  {payoutRecipient
+                    ? <p className="mt-2 break-all">{payoutRecipient.method.toUpperCase()} · {payoutRecipient.account_name} · {payoutRecipient.account_identifier}</p>
+                    : <p className="mt-2">Destination unavailable. Verify seller account details before paying.</p>}
+                  <p className="mt-2 text-xs">Manually verify the recipient and the provider transfer before marking payout paid.</p>
+                </div>
+              )}
               {order.payout_status === "requested" && (
                 <p className="mt-5 rounded-xl bg-yellow-50 p-4 text-sm font-medium text-yellow-700">
                   Payout requested. Admin will process it.
@@ -11437,6 +11495,7 @@ export default function App() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/dashboard-redirect" element={<DashboardRedirectPage />} />
         <Route path="/profile-setup" element={<ProfileSetupPage />} />
+        <Route path="/payment-settings" element={<PaymentSettingsPage />} />
         <Route path="/seller-dashboard" element={<SellerDashboardPage />} />
         <Route path="/buyer-dashboard" element={<BuyerDashboardPage />} />
         <Route path="/admin" element={<AdminPage />} />
