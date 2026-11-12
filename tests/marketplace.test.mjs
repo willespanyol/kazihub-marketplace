@@ -149,3 +149,17 @@ test("order timeline and cancellation requests do not auto-refund payments", () 
  assert.ok(management.includes('rpc("resolve_order_cancellation"'));
  assert.ok(management.includes('payment/refund status reconciled'));
 });
+
+test("file uploads never submit a native browser form", () => {
+  assert.ok(app.includes('type="button"\n            onClick={handleFileUpload}'));
+  assert.ok(!app.includes('<form onSubmit={handleFileUpload}'));
+  assert.ok(app.includes('event?.preventDefault?.()'));
+  assert.ok(app.includes('Uploading securely...'));
+});
+test("dispute evidence and status synchronization are shown to order participants", () => {
+  const evidence=readFileSync(new URL("../src/components/OrderDisputeEvidencePanel.jsx",import.meta.url),"utf8");
+  assert.ok(app.includes('<OrderDisputeEvidencePanel order={order} disputes={orderDisputes} files={orderFiles}'));
+  assert.ok(evidence.includes('from("order_dispute_evidence").insert('));
+  assert.ok(evidence.includes('order_file_id:fileId||null'));
+  assert.ok(!app.includes('.update({\n        status: "disputed",'));
+});
