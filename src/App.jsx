@@ -10374,6 +10374,7 @@ for (const admin of admins || []) {
         onChange={(event) => setDeliveryNote(event.target.value)}
       aria-label="Add a delivery note for the buyer. Mention delivered files, assumptions, and anything the buyer should review." />
 
+      <p className="text-sm text-slate-600">Have a file to deliver? <a href="#order-files-section" className="font-semibold text-primary underline">Upload it under Order Files</a>, select “Delivery File,” and confirm it appears in the file list before marking this order as delivered.</p>
       <button
         onClick={handleDeliverOrder}
         disabled={actionLoading}
@@ -10523,7 +10524,7 @@ for (const admin of admins || []) {
       </div>
 
       <div className="mt-8 rounded-3xl border bg-white p-4 shadow-sm sm:p-6">
-        <h2 className="text-2xl font-bold">Order Files</h2>
+        <h2 id="order-files-section" className="text-2xl font-bold">Order Files</h2>
         <p className="mt-2 text-muted">
           Attach your completed work, supporting documents or revision files to this order. Maximum 50 MB per file; larger projects can be split into several files. Files are private to order participants.
         </p>
