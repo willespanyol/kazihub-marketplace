@@ -6,6 +6,7 @@ import { services } from "./data/services";
 import { useAuth } from "./context/useAuth";
 import { supabase } from "./lib/supabaseClient";
 import PaymentSettingsPage from "./pages/PaymentSettingsPage";
+import AdminReportsPage from "./pages/AdminReportsPage";
 async function sendNotification({ userId, type, title, message, link }) {
   if (!userId) return;
 
@@ -308,7 +309,7 @@ const unreadNotificationCount = notifications.filter(
               ["/seller-dashboard?section=analytics", "Analytics"],
               ["/profile-setup", "My profile"], ["/payment-settings", "Payments & verification"], ["/support", "Support"],
             ] : profile?.role === "admin" ? [
-              ["/admin", "Admin dashboard"], ["/admin/activity", "Activity log"],
+              ["/admin", "Admin dashboard"], ["/admin/activity", "Activity log"], ["/admin/reports", "Abuse reports"],
               ["/messages", "Messages"], ["/services", "Browse services"],
               ["/profile-setup", "My profile"], ["/payment-settings", "Payments & verification"], ["/support", "Support"],
             ] : [
@@ -11382,6 +11383,13 @@ function AdminActivityPage() {
   const [gigs, setGigs] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState("");
+  useEffect(() => {
+    const conversationId = new URLSearchParams(window.location.search).get("conversation");
+    if (conversationId && /^[0-9a-f-]{36}$/i.test(conversationId)) {
+      setSelectedConversation(conversationId);
+    }
+  }, []);
+
   const [messages, setMessages] = useState([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -11599,6 +11607,7 @@ export default function App() {
         <Route path="/buyer-dashboard" element={<BuyerDashboardPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/admin/activity" element={<AdminActivityPage />} />
+        <Route path="/admin/reports" element={<AdminReportsPage />} />
         <Route path="/support" element={<SupportPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
