@@ -13,6 +13,7 @@ import OrderMilestonesPanel from "./components/OrderMilestonesPanel";
 import SellerPortfolioPage from "./pages/SellerPortfolioPage";
 import MarketplaceSearchPage from "./pages/MarketplaceSearchPage";
 import FindSellersPage from "./pages/FindSellersPage";
+import SellerAvailabilityPage from "./pages/SellerAvailabilityPage";
 import { validateUpload, uniqueUploadPath, readableUploadError } from "./lib/uploadUtils";
 async function sendNotification({ userId, type, title, message, link }) {
   if (!userId) return;
@@ -191,6 +192,7 @@ const unreadNotificationCount = notifications.filter(
               <Link to="/seller-dashboard?section=orders" className="hover:text-primary">Orders</Link>
               <Link to="/seller-dashboard?section=payouts" className="hover:text-primary">Earnings</Link>
               <Link to="/profile-setup" className="hover:text-primary">Profile</Link>
+              <Link to="/availability" className="hover:text-primary">Availability</Link>
             </>
           ) : (
             <>
@@ -315,7 +317,7 @@ const unreadNotificationCount = notifications.filter(
               ["/seller-dashboard?section=orders", "Orders"], ["/offers", "Sent offers"],
               ["/seller-dashboard?section=payouts", "Earnings"],
               ["/seller-dashboard?section=analytics", "Analytics"],
-              ["/profile-setup", "My profile"], ["/portfolio", "My portfolio"], ["/payment-settings", "Payments & verification"], ["/support", "Support"],
+              ["/profile-setup", "My profile"], ["/portfolio", "My portfolio"], ["/availability", "Availability"], ["/payment-settings", "Payments & verification"], ["/support", "Support"],
             ] : profile?.role === "admin" ? [
               ["/admin", "Admin dashboard"], ["/admin/activity", "Activity log"], ["/admin/reports", "Abuse reports"],
               ["/messages", "Messages"], ["/services", "Browse services"],
@@ -11691,6 +11693,7 @@ export default function App() {
         <Route path="/profile-setup" element={<ProfileSetupPage />} />
         <Route path="/payment-settings" element={<PaymentSettingsPage />} />
         <Route path="/portfolio" element={<SellerPortfolioPage />} />
+        <Route path="/availability" element={<SellerAvailabilityPage />} />
         <Route path="/seller-dashboard" element={<SellerDashboardPage />} />
         <Route path="/buyer-dashboard" element={<BuyerDashboardPage />} />
         <Route path="/admin" element={<AdminPage />} />
