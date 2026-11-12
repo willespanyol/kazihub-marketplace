@@ -7,6 +7,7 @@ import { useAuth } from "./context/useAuth";
 import { supabase } from "./lib/supabaseClient";
 import PaymentSettingsPage from "./pages/PaymentSettingsPage";
 import AdminReportsPage from "./pages/AdminReportsPage";
+import ConversationOffersPanel from "./components/ConversationOffersPanel";
 async function sendNotification({ userId, type, title, message, link }) {
   if (!userId) return;
 
@@ -7088,6 +7089,8 @@ function ConversationPage() {
           {errorText}
         </p>
       )}
+
+      <ConversationOffersPanel conversation={conversation} userId={user.id} />
 
       <section aria-label="Conversation messages" className="min-h-64 rounded-2xl border bg-white p-4 sm:p-6">
       <div className="grid max-h-[min(55dvh,36rem)] gap-4 overflow-y-auto overscroll-contain" aria-live="polite" aria-relevant="additions">
