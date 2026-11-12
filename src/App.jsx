@@ -183,7 +183,7 @@ const unreadNotificationCount = notifications.filter(
               <Link to="/messages" className="inline-flex items-center gap-1"><MessageCircle size={16} /> Messages</Link>
               <Link to="/support">Support</Link>
               {user && <Link to="/profile-setup">Profile</Link>}
-              {profile?.role === "admin" && <Link to="/admin">Admin</Link>}
+              {profile?.role === "admin" && <><Link to="/admin">Admin</Link><Link to="/admin/activity">Activity</Link></>}
             </>
           )}
         </nav>
@@ -11180,7 +11180,150 @@ function PaymentPolicyPage() {
   );
 }
 
-export default function App() {
+export default 
+function AdminActivityPage() {
+  const { user, profile, loading: authLoading } = useAuth();
+  const [activity, setActivity] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  const [selectedUser, setSelectedUser] = useState("");
+  const [gigs, setGigs] = useState([]);
+  const [conversations, setConversations] = useState([]);
+  const [selectedConversation, setSelectedConversation] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const isAuthorized = Boolean(user && profile?.role === "admin" && profile?.account_status === "active");
+
+  useEffect(() => {
+    if (!isAuthorized) return;
+    let mounted = true;
+    const load = async () => {
+      setBusy(true);
+      const [events, people] = await Promise.all([
+        supabase.from("marketplace_activity").select("*").order("occurred_at", { ascending: false }).limit(150),
+        supabase.from("profiles").select("id,full_name,role,account_status,created_at").order("created_at", { ascending: false }).limit(150),
+      ]);
+      if (!mounted) return;
+      if (events.error || people.error) setError(events.error?.message || people.error?.message);
+      else { setActivity(events.data || []); setAccounts(people.data || []); setError(""); }
+      setBusy(false);
+    };
+    load();
+    return () => { mounted = false; };
+  }, [isAuthorized]);
+
+  useEffect(() => {
+    if (!isAuthorized || !selectedUser) { setGigs([]); setConversations([]); setSelectedConversation(""); return; }
+    let mounted = true;
+    const loadUser = async () => {
+      const [offers, chats] = await Promise.all([
+        supabase.from("service_offers").select("id,title,status,created_at").eq("seller_id",selectedUser).order("created_at", { ascending: false }).limit(100),
+        supabase.from("direct_conversations").select("id,subject,buyer_id,seller_id,created_at").or(`buyer_id.eq.${selectedUser},seller_id.eq.${selectedUser}`).order("created_at", { ascending: false }).limit(100),
+      ]);
+      if (!mounted) return;
+      setGigs(offers.data || []);
+      setConversations(chats.data || []);
+      setSelectedConversation("");
+      setMessages([]);
+      if (offers.error || chats.error) setError(offers.error?.message || chats.error?.message);
+    };
+    loadUser();
+    return () => { mounted = false; };
+  }, [isAuthorized, selectedUser]);
+
+  useEffect(() => {
+    if (!isAuthorized || !selectedConversation) { setMessages([]); return; }
+    let mounted = true;
+    supabase.from("direct_messages").select("id,sender_id,message,created_at")
+      .eq("conversation_id", selectedConversation).order("created_at", { ascending: true }).limit(200)
+      .then(({ data, error: queryError }) => {
+        if (!mounted) return;
+        setMessages(data || []);
+        if (queryError) setError(queryError.message);
+      });
+    return () => { mounted = false; };
+  }, [isAuthorized, selectedConversation]);
+
+  if (authLoading) return <main className="mx-auto max-w-6xl p-8">Checking administrator access...</main>;
+  if (!isAuthorized) return <main className="mx-auto max-w-6xl p-8"><h1 className="text-2xl font-bold">Access denied</h1><p>Administrator access is required.</p></main>;
+
+  const chosen = accounts.find((account) => account.id === selectedUser);
+  const relatedActivity = selectedUser ? activity.filter((event) => event.subject_user_id === selectedUser || event.actor_id === selectedUser) : activity;
+
+  return (
+    <main className="mx-auto max-w-7xl space-y-6 px-5 py-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div><h1 className="text-3xl font-bold text-dark">Marketplace activity</h1>
+        <p className="text-sm text-muted">Read-only audit view. Private message content is opened only when you select a conversation.</p></div>
+        <Link to="/admin" className="rounded-xl border px-4 py-2 text-sm font-semibold">Back to admin</Link>
+      </div>
+      {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-red-700">{error}</p>}
+      <div className="grid gap-5 lg:grid-cols-3">
+        <section className="rounded-2xl border bg-white p-5 lg:col-span-2">
+          <div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-bold">Latest activity</h2><span className="text-xs text-muted">{busy ? "Loading..." : "Showing up to 150 events"}</span></div>
+          <div className="max-h-[660px] space-y-2 overflow-y-auto">
+            {relatedActivity.length === 0 && <p className="text-sm text-muted">No recorded events in this view yet.</p>}
+            {relatedActivity.map((event) => (
+              <button type="button" key={event.id} onClick={() => { if (event.subject_user_id) setSelectedUser(event.subject_user_id); }}
+                className="block w-full rounded-xl border p-3 text-left hover:bg-slate-50">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold">{event.summary}</span>
+                  <span className="text-xs text-muted">{new Date(event.occurred_at).toLocaleString()}</span>
+                </div>
+                <p className="mt-1 text-xs text-muted">{event.event_type} · {event.entity_type} · {event.subject_user_id || "System"}</p>
+              </button>
+            ))}
+          </div>
+        </section>
+        <section className="rounded-2xl border bg-white p-5">
+          <h2 className="mb-3 text-lg font-bold">Account activity</h2>
+          <label htmlFor="activity-user" className="mb-2 block text-sm font-semibold">Select account</label>
+          <select id="activity-user" value={selectedUser} onChange={(event) => setSelectedUser(event.target.value)}
+            className="w-full rounded-lg border p-3 text-sm">
+            <option value="">All accounts</option>
+            {accounts.map((account) => <option key={account.id} value={account.id}>{account.full_name || account.id} ({account.role})</option>)}
+          </select>
+          {chosen && <>
+            <div className="mt-4 rounded-lg bg-slate-50 p-3 text-sm">
+              <p className="font-semibold">{chosen.full_name || "Account"}</p>
+              <p>Role: {chosen.role}</p><p>Status: {chosen.account_status}</p>
+              <p>Joined: {new Date(chosen.created_at).toLocaleDateString()}</p>
+            </div>
+            <h3 className="mt-5 font-semibold">Gigs ({gigs.length})</h3>
+            <div className="mt-2 max-h-52 space-y-2 overflow-auto text-sm">
+              {gigs.length === 0 ? <p className="text-muted">No gigs</p> : gigs.map((gig) =>
+                <Link key={gig.id} to={`/services/${gig.id}`} className="block rounded-lg border p-2 hover:bg-slate-50">
+                  {gig.title} <span className="text-xs text-muted">({gig.status})</span>
+                </Link>)}
+            </div>
+            <h3 className="mt-5 font-semibold">Conversations ({conversations.length})</h3>
+            <p className="mt-1 text-xs text-muted">Administrative access to private messages should be used for legitimate support or safety investigations and logged.</p>
+            <div className="mt-2 max-h-52 space-y-2 overflow-auto text-sm">
+              {conversations.length === 0 ? <p className="text-muted">No conversations</p> : conversations.map((chat) =>
+                <button key={chat.id} type="button" onClick={() => setSelectedConversation(chat.id)}
+                  className={`block w-full rounded-lg border p-2 text-left hover:bg-slate-50 ${chat.id === selectedConversation ? "border-teal-600" : ""}`}>
+                  {chat.subject || "Conversation"} <span className="text-xs text-muted">{new Date(chat.created_at).toLocaleDateString()}</span>
+                </button>)}
+            </div>
+          </>}
+        </section>
+      </div>
+      {selectedConversation && <section className="rounded-2xl border bg-white p-5">
+        <h2 className="text-lg font-bold">Conversation review</h2>
+        <p className="mb-3 text-xs text-muted">Read-only. Do not use private messages outside an authorized investigation.</p>
+        <div className="max-h-96 space-y-3 overflow-y-auto">
+          {messages.length === 0 ? <p className="text-sm text-muted">No messages found.</p> :
+            messages.map((message) => <div key={message.id} className="rounded-lg bg-slate-50 p-3 text-sm">
+              <p className="mb-1 text-xs text-muted">{message.sender_id} · {new Date(message.created_at).toLocaleString()}</p>
+              <p className="whitespace-pre-wrap break-words">{message.message}</p>
+            </div>)}
+        </div>
+      </section>}
+    </main>
+  );
+}
+
+function App() {
   return (
     <BrowserRouter>
       <Header />
@@ -11201,6 +11344,7 @@ export default function App() {
         <Route path="/seller-dashboard" element={<SellerDashboardPage />} />
         <Route path="/buyer-dashboard" element={<BuyerDashboardPage />} />
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/admin/activity" element={<AdminActivityPage />} />
         <Route path="/support" element={<SupportPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
