@@ -9400,6 +9400,8 @@ function OrderDetailsPage() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileType, setFileType] = useState("attachment");
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [fileInputVersion, setFileInputVersion] = useState(0);
+  const [uploadStage, setUploadStage] = useState("");
   const [orderRequirements, setOrderRequirements] = useState("");
   const [loadingRequirements, setLoadingRequirements] = useState(true);
   const [submittingRequirements, setSubmittingRequirements] = useState(false);
@@ -9846,53 +9848,74 @@ await sendNotification({
   }
 
   async function handleFileUpload(event) {
-    // Explicit button action: never rely on native form submission for binary uploads.
     event?.preventDefault?.();
     event?.stopPropagation?.();
+    if (uploadingFile) return;
     if (!user || !order || !selectedFile) {
-      setErrorText("Choose a file to upload to this order.");
+      setErrorText("Choose a file before uploading to this order.");
+      return;
+    }
+    if (user.id !== order.buyer_id && user.id !== order.seller_id && profile?.role !== "admin") {
+      setErrorText("Only participants in this order can upload attachments.");
       return;
     }
     if (isSuspended(profile)) {
       setErrorText("Your account is suspended. This action is not allowed.");
       return;
     }
-    const validationError = validateUpload(selectedFile, "order-files");
+    const file = selectedFile;
+    const validationError = validateUpload(file, "order-files");
     if (validationError) { setErrorText(validationError); return; }
-    const filePath = uniqueUploadPath(order.id, selectedFile);
+
     setUploadingFile(true);
+    setUploadStage("Checking secure session...");
     setMessage("");
     setErrorText("");
     try {
-      const { error: uploadError } = await supabase.storage
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      if (authError || !authData?.session?.access_token) {
+        throw new Error("Your session has expired. Sign in again and retry the upload.");
+      }
+      const filePath = uniqueUploadPath(order.id, file);
+      setUploadStage("Uploading file to private storage...");
+      const { data: stored, error: uploadError } = await supabase.storage
         .from("order-files")
-        .upload(filePath, selectedFile, {
-          contentType: selectedFile.type || "application/octet-stream",
+        .upload(filePath, file, {
+          contentType: file.type || "application/octet-stream",
           upsert: false,
           cacheControl: "3600",
         });
       if (uploadError) throw uploadError;
+      if (!stored?.path) throw new Error("Storage did not confirm the file path. Please retry.");
 
-      const { error: insertError } = await supabase.from("order_files").insert({
-        order_id: order.id,
-        uploader_id: user.id,
-        file_name: selectedFile.name,
-        file_path: filePath,
-        file_type: fileType,
-        file_size: selectedFile.size,
-      });
-      if (insertError) {
+      setUploadStage("Saving the attachment to your order...");
+      const { data: recorded, error: insertError } = await supabase.from("order_files")
+        .insert({
+          order_id: order.id,
+          uploader_id: user.id,
+          file_name: file.name,
+          file_path: filePath,
+          file_type: fileType,
+          file_size: file.size,
+        })
+        .select("id")
+        .single();
+      if (insertError || !recorded?.id) {
         const cleanup = await supabase.storage.from("order-files").remove([filePath]);
-        throw new Error(`File uploaded but the order record was rejected: ${insertError.message}${cleanup.error ? ". Please contact support to remove the unlinked file." : ". The unused file was removed."}`);
+        throw new Error(`The upload reached storage, but could not be linked to your order: ${insertError?.message || "No order record returned"}${cleanup.error ? ". Contact support to remove the unlinked file." : ". The unused file was removed."}`);
       }
+
+      setUploadStage("Refreshing the order file list...");
+      await fetchOrderFiles();
       setSelectedFile(null);
       setFileType("attachment");
-      setMessage("File attached to this order successfully.");
-      await fetchOrderFiles();
+      setFileInputVersion((current) => current + 1);
+      setMessage("File uploaded and attached to this order successfully.");
     } catch (error) {
       setErrorText(readableUploadError(error));
     } finally {
       setUploadingFile(false);
+      setUploadStage("");
     }
   }
 
@@ -10586,6 +10609,8 @@ for (const admin of admins || []) {
               <input
                 className="mt-2 min-h-11 w-full rounded-xl border bg-white px-3 py-3 text-base"
                 type="file"
+                key={fileInputVersion}
+                disabled={uploadingFile}
                 onChange={(event) => {
                   const file = event.target.files?.[0] || null;
                   setSelectedFile(file);
@@ -10604,7 +10629,9 @@ for (const admin of admins || []) {
           >
             {uploadingFile ? "Uploading securely..." : "Upload File"}
           </button>
-          {uploadingFile && <p role="status" className="text-sm font-medium text-teal-800">Transferring your file. Keep this page open until confirmation appears.</p>}
+          {uploadingFile && <p role="status" aria-live="polite" className="text-sm font-medium text-teal-800">{uploadStage || "Uploading securely..."} Keep this page open.</p>}
+          {errorText && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-800">{errorText}</p>}
+          {message && <p role="status" className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm font-medium text-green-800">{message}</p>}
         </div>
 
         {loadingFiles ? (
