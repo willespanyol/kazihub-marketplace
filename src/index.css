@@ -81,3 +81,20 @@ table { border-collapse: collapse; }
     transition-duration: 0.01ms !important;
   }
 }
+
+.skip-to-main {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 100;
+  transform: translateY(-180%);
+  border-radius: 0.75rem;
+  background: #0f766e;
+  color: #fff;
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+}
+.skip-to-main:focus-visible { transform: translateY(0); }
+@media (max-width: 1023px) {
+  .skip-to-main { top: 0.25rem; }
+}
