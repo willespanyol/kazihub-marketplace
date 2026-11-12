@@ -86,3 +86,14 @@ test("milestones and seller portfolios have dedicated pages without altering the
  assert.ok(portfolios.includes('from("seller_portfolio_projects")'));
  assert.ok(portfolios.includes('storage.from("portfolio-images")'));
 });
+
+test("public discovery is server-side, paginated and keeps admin UI separate", () => {
+ const search=readFileSync(new URL("../src/pages/MarketplaceSearchPage.jsx",import.meta.url),"utf8");
+ assert.ok(app.includes('<Route path="/services" element={<MarketplaceSearchPage />} />'));
+ assert.ok(search.includes('rpc("search_marketplace_services"'));
+ assert.ok(search.includes("p_page_size:PAGE_SIZE"));
+ assert.ok(search.includes("p_verified_only:filters.verified"));
+ assert.ok(search.includes('from("saved_services")'));
+ assert.ok(search.includes("aria-label=\"Search results pages\""));
+ assert.ok(app.includes("export default function App()"));
+});
