@@ -41,6 +41,27 @@ export function AuthProvider({ children }) {
 
     loadSession();
 
+    // Refresh permissions when a tab resumes; suspended accounts must not
+    // retain a stale active profile in the interface.
+    let lastChecked = 0;
+    const refreshOnFocus = async () => {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastChecked < 5000) return;
+      lastChecked = Date.now();
+      const { data: authData } = await supabase.auth.getUser();
+      const currentUser = authData.user;
+      if (!currentUser) {
+        setUser(null);
+        setProfile(null);
+        return;
+      }
+      setUser(currentUser);
+      const freshProfile = await fetchProfile(currentUser.id);
+      setProfile(freshProfile);
+    };
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnFocus);
+
  const { data: listener } = supabase.auth.onAuthStateChange(
   (event, session) => {
     // Supabase emits TOKEN_REFRESHED and INITIAL_SESSION when a tab resumes.
@@ -65,6 +86,8 @@ export function AuthProvider({ children }) {
 
     return () => {
       listener.subscription.unsubscribe();
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
     };
   }, []);
 
