@@ -8,6 +8,7 @@ import { supabase } from "./lib/supabaseClient";
 import PaymentSettingsPage from "./pages/PaymentSettingsPage";
 import AdminReportsPage from "./pages/AdminReportsPage";
 import ConversationOffersPanel from "./components/ConversationOffersPanel";
+import MyOffersPage from "./pages/MyOffersPage";
 async function sendNotification({ userId, type, title, message, link }) {
   if (!userId) return;
 
@@ -305,7 +306,7 @@ const unreadNotificationCount = notifications.filter(
             {(profile?.role === "seller" ? [
               ["/seller-dashboard", "Overview"], ["/messages", "Inbox"],
               ["/seller-dashboard?section=services", "My gigs"],
-              ["/seller-dashboard?section=orders", "Orders"],
+              ["/seller-dashboard?section=orders", "Orders"], ["/offers", "Sent offers"],
               ["/seller-dashboard?section=payouts", "Earnings"],
               ["/seller-dashboard?section=analytics", "Analytics"],
               ["/profile-setup", "My profile"], ["/payment-settings", "Payments & verification"], ["/support", "Support"],
@@ -316,7 +317,7 @@ const unreadNotificationCount = notifications.filter(
             ] : [
               ["/", "Home"], ["/services", "Browse services"], ["/categories", "Categories"],
               ["/project-requests", "Project requests"], ["/messages", "Messages"],
-              ...(user ? [["/buyer-dashboard", "My dashboard"], ["/profile-setup", "My profile"], ["/payment-settings", "Payments & verification"]] : [["/login", "Sign in"], ["/signup", "Join KaziHub"]]),
+              ...(user ? [["/buyer-dashboard", "My dashboard"], ["/offers", "Compare offers"], ["/profile-setup", "My profile"], ["/payment-settings", "Payments & verification"]] : [["/login", "Sign in"], ["/signup", "Join KaziHub"]]),
               ["/support", "Support"],
             ]).map(([href, label]) => (
               <Link key={href} to={href} onClick={() => setMobileMenuOpen(false)}
@@ -11648,6 +11649,7 @@ export default function App() {
         <Route path="/project-requests" element={<ProjectRequestsPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/orders/:id" element={<OrderDetailsPage />} />
+        <Route path="/offers" element={<MyOffersPage />} />
         <Route path="/messages" element={<MessagesPage />} />
         <Route path="/messages/:id" element={<ConversationPage />} />
         <Route path="*" element={<NotFoundPage />} />
