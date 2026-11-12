@@ -46,7 +46,7 @@ export default function ConversationOffersPanel({ conversation, userId }) {
     event.preventDefault();
     const numericPrice=Number(price);
     if(description.trim().length<20 || !(numericPrice>=5) || !(numericPrice<=10000000) ||
-       Math.round(numericPrice*100)!==numericPrice*100 || !Number.isInteger(Number(days)) || Number(days)<1 ||
+       Math.abs(Math.round(numericPrice*100)-numericPrice*100)>0.000001 || !Number.isInteger(Number(days)) || Number(days)<1 ||
        !Number.isInteger(Number(revisions)) || Number(revisions)<0){
       setError("Enter at least 20 characters of scope, a valid price (two decimals maximum), delivery days and revisions.");
       return;
