@@ -9848,7 +9848,9 @@ await sendNotification({
   }
 
   async function handleFileUpload(event) {
-    event.preventDefault();
+    // Explicit button action: never rely on native form submission for binary uploads.
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
     if (!user || !order || !selectedFile) {
       setErrorText("Choose a file to upload to this order.");
       return;
@@ -10568,7 +10570,7 @@ for (const admin of admins || []) {
           Attach your completed work, supporting documents or revision files to this order. Maximum 50 MB per file; larger projects can be split into several files. Files are private to order participants.
         </p>
 
-        <form onSubmit={handleFileUpload} className="mt-6 grid gap-4 rounded-2xl bg-slate-50 p-5">
+        <div role="group" aria-label="Upload an order file" className="mt-6 grid gap-4 rounded-2xl bg-slate-50 p-5">
           <div className="grid gap-4 md:grid-cols-3">
             <select
               className="rounded-xl border px-4 py-3 outline-none"
@@ -10596,12 +10598,15 @@ for (const admin of admins || []) {
           </div>
 
           <button
+            type="button"
+            onClick={handleFileUpload}
             disabled={uploadingFile || !selectedFile || Boolean(selectedFile && validateUpload(selectedFile,"order-files")) || isSuspended(profile)}
             className="rounded-full bg-primary px-6 py-3 font-semibold text-white disabled:opacity-60"
           >
-            {uploadingFile ? "Uploading..." : "Upload File"}
+            {uploadingFile ? "Uploading securely..." : "Upload File"}
           </button>
-        </form>
+          {uploadingFile && <p role="status" className="text-sm font-medium text-teal-800">Transferring your file. Keep this page open until confirmation appears.</p>}
+        </div>
 
         {loadingFiles ? (
           <p className="mt-6 text-muted">Loading files...</p>
