@@ -136,6 +136,7 @@ export default function MarketplaceSearchPage(){
        className="mt-2 min-h-12 w-full rounded-xl border px-3 text-base"/>
      </label>
     </div>
+    <p className="text-xs text-slate-500">Prices are shown in each gig's listed currency. Numeric price filters do not convert between currencies.</p>
     <label className="block text-sm font-semibold">Delivery within
      <select value={filters.days} onChange={e=>update("days",e.target.value)}
       className="mt-2 min-h-12 w-full rounded-xl border px-3 text-base">
