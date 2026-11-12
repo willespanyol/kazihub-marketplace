@@ -9606,13 +9606,7 @@ function OrderDetailsPage() {
       return;
     }
 
-    await supabase
-      .from("orders")
-      .update({
-        status: "disputed",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", order.id);
+    // A database trigger atomically marks the order disputed when the case is created.
 
     const { data: admins } = await supabase
       .from("profiles")
@@ -10710,14 +10704,14 @@ for (const admin of admins || []) {
           <div className="mt-6 rounded-2xl bg-slate-50 p-5">
             <p className="font-semibold">No disputes opened.</p>
             <p className="mt-2 text-sm text-muted">
-              If an issue occurs, the buyer or seller can submit a dispute for admin review.
+              If an issue occurs, the buyer or seller can submit a dispute for admin review. For a mutual cancellation, use Cancellation Requests above.
             </p>
           </div>
         )}
 
         {order.status !== "completed" && order.status !== "cancelled" && (
           <form onSubmit={handleSubmitDispute} className="mt-6 grid gap-4 rounded-2xl bg-slate-50 p-5">
-            <h3 className="font-bold">Open a Dispute or Cancellation Request</h3>
+            <h3 className="font-bold">Open a Dispute</h3>
 
             <select
               className="rounded-xl border bg-white px-4 py-3 outline-none"
