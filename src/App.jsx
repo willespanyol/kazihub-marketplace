@@ -6706,6 +6706,8 @@ function MessagesPage() {
   const [conversations, setConversations] = useState([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
   const [errorText, setErrorText] = useState("");
+  const [searchText, setSearchText] = useState("");
+  const [unreadByConversation, setUnreadByConversation] = useState({});
 
   const fetchConversations = useCallback(async () => {
     if (!user) {
@@ -6728,6 +6730,15 @@ function MessagesPage() {
       setConversations([]);
     } else {
       setConversations(data || []);
+      const conversationIds=(data||[]).map(c=>c.id);
+      if (conversationIds.length) {
+        const {data: unread} = await supabase.from("direct_messages")
+          .select("conversation_id").in("conversation_id",conversationIds)
+          .neq("sender_id",user.id).eq("is_read",false).limit(500);
+        const counts={};
+        (unread||[]).forEach(item=>{counts[item.conversation_id]=(counts[item.conversation_id]||0)+1;});
+        setUnreadByConversation(counts);
+      } else {setUnreadByConversation({});}
     }
 
     setLoadingConversations(false);
@@ -6738,6 +6749,8 @@ function MessagesPage() {
       fetchConversations();
     }
     loadConversations();
+    const refresh = window.setInterval(fetchConversations,15000);
+    return () => window.clearInterval(refresh);
   }, [fetchConversations]);
 
   if (!user) {
@@ -6757,21 +6770,26 @@ function MessagesPage() {
     );
   }
 
+  const matchingConversations=conversations.filter(conversation =>
+    (conversation.subject||"").toLowerCase().includes(searchText.trim().toLowerCase()));
   return (
-    <main className="mx-auto max-w-7xl px-5 py-12">
+    <main className="mx-auto max-w-7xl px-5 py-8 sm:py-12">
       <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-4xl font-bold">Messages</h1>
           <p className="mt-2 text-muted">Your direct conversations with buyers and sellers.</p>
         </div>
 
-        <Link
-          to="/messages"
-          className="inline-flex items-center rounded-full bg-primary px-5 py-3 text-sm font-semibold text-white"
-        >
-          Refresh
-        </Link>
+        <button type="button" onClick={fetchConversations}
+          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-white">
+          Refresh inbox
+        </button>
       </div>
+
+      <label className="mb-5 block text-sm font-semibold text-slate-700">Find a conversation
+        <input type="search" value={searchText} onChange={event=>setSearchText(event.target.value)}
+          placeholder="Search conversation subjects" className="mt-2 min-h-11 w-full rounded-xl border px-4 py-3 text-base sm:max-w-lg" />
+      </label>
 
       {errorText && (
         <p className="mb-6 rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700">
@@ -6781,14 +6799,14 @@ function MessagesPage() {
 
       {loadingConversations ? (
         <p className="text-muted">Loading conversations...</p>
-      ) : conversations.length === 0 ? (
+      ) : matchingConversations.length === 0 ? (
         <div className="rounded-3xl border bg-white p-8 shadow-sm">
           <h2 className="text-2xl font-bold">No conversations yet</h2>
           <p className="mt-3 text-muted">Contact a seller from a service page to begin a direct conversation.</p>
         </div>
       ) : (
         <div className="grid gap-5">
-          {conversations.map((conversation) => {
+          {matchingConversations.map((conversation) => {
             const roleLabel = conversation.buyer_id === user.id ? "Seller conversation" : "Buyer inquiry";
 
             return (
@@ -6800,7 +6818,10 @@ function MessagesPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-xs font-semibold text-primary">{roleLabel}</p>
-                    <h2 className="mt-2 text-2xl font-bold">{conversation.subject}</h2>
+                    <h2 className="mt-2 text-lg font-bold sm:text-2xl">{conversation.subject}</h2>
+                    {unreadByConversation[conversation.id] > 0 && <span className="mt-2 inline-block rounded-full bg-teal-100 px-2.5 py-1 text-xs font-bold text-teal-900">
+                      {unreadByConversation[conversation.id]} unread
+                    </span>}
                   </div>
 
                   <p className="text-sm text-slate-500">
