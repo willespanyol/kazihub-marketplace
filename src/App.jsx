@@ -12,6 +12,7 @@ import MyOffersPage from "./pages/MyOffersPage";
 import OrderMilestonesPanel from "./components/OrderMilestonesPanel";
 import SellerPortfolioPage from "./pages/SellerPortfolioPage";
 import MarketplaceSearchPage from "./pages/MarketplaceSearchPage";
+import FindSellersPage from "./pages/FindSellersPage";
 async function sendNotification({ userId, type, title, message, link }) {
   if (!userId) return;
 
@@ -318,7 +319,7 @@ const unreadNotificationCount = notifications.filter(
               ["/messages", "Messages"], ["/services", "Browse services"],
               ["/profile-setup", "My profile"], ["/payment-settings", "Payments & verification"], ["/support", "Support"],
             ] : [
-              ["/", "Home"], ["/services", "Browse services"], ["/categories", "Categories"],
+              ["/", "Home"], ["/services", "Browse services"], ["/sellers", "Find freelancers"], ["/categories", "Categories"],
               ["/project-requests", "Project requests"], ["/messages", "Messages"],
               ...(user ? [["/buyer-dashboard", "My dashboard"], ["/offers", "Compare offers"], ["/profile-setup", "My profile"], ["/payment-settings", "Payments & verification"]] : [["/login", "Sign in"], ["/signup", "Join KaziHub"]]),
               ["/support", "Support"],
@@ -11656,6 +11657,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/services" element={<MarketplaceSearchPage />} />
+        <Route path="/sellers" element={<FindSellersPage />} />
         <Route path="/categories" element={<AllCategoriesPage />} />
         <Route path="/categories/:slug" element={<CategoryPage />} />
         <Route path="/services/:id" element={<ServiceDetailsPage />} />
