@@ -1733,6 +1733,7 @@ function SignupPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [signupPhone, setSignupPhone] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -1773,6 +1774,11 @@ function SignupPage() {
   async function handleSubmit(event) {
     event.preventDefault();
 
+    if (!/^\+[1-9]\d{7,14}$/.test(signupPhone.trim())) {
+      setErrorText("Enter a valid phone number with country code, for example +254712345678.");
+      return;
+    }
+    sessionStorage.setItem("kazihub_signup_phone", signupPhone.trim());
     setLoading(true);
     setMessage("");
     setErrorText("");
@@ -1786,9 +1792,9 @@ function SignupPage() {
       });
 
       if (result.session) {
-        navigate("/profile-setup");
+        navigate("/payment-settings");
       } else {
-        setMessage("Account created. Check your email for a confirmation link, then sign in to complete your profile.");
+        setMessage("Account created. Check your email for a confirmation link, then sign in and visit Payments & verification to confirm your phone by SMS.");
       }
     } catch (error) {
       setErrorText(error.message);
@@ -1884,6 +1890,13 @@ function SignupPage() {
             minLength={6}
             autoComplete="new-password"
           aria-label="Password" />
+
+          <label className="grid gap-2 text-sm font-semibold text-slate-700">Mobile number (required)
+            <input type="tel" inputMode="tel" autoComplete="tel" required value={signupPhone}
+              onChange={event=>setSignupPhone(event.target.value)} placeholder="+254712345678"
+              className="min-h-11 w-full rounded-xl border px-4 py-3 text-base" />
+          </label>
+          <p className="text-xs text-slate-600">Phone ownership is verified by SMS after sign-in. Your account email must be confirmed first when email confirmation is enabled. SMS verification requires the provider to be configured.</p>
 
           {message && (
             <p className="rounded-xl bg-green-50 p-4 text-sm font-medium text-green-700">
