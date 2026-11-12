@@ -98,3 +98,33 @@ table { border-collapse: collapse; }
 @media (max-width: 1023px) {
   .skip-to-main { top: 0.25rem; }
 }
+
+/* Small-screen scrolling and keyboard-safe composition. */
+@media (max-width: 639px) {
+  main .overflow-x-auto:has(> table)::before {
+    content: "Swipe sideways to view all columns";
+    display: block;
+    position: sticky;
+    left: 0;
+    width: fit-content;
+    max-width: 100%;
+    padding: 0.375rem 0.75rem;
+    margin-bottom: 0.375rem;
+    border-radius: 0.5rem;
+    background: #f0fdfa;
+    color: #115e59;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  main :is(button, input, select, textarea):focus-visible {
+    scroll-margin-bottom: 6rem;
+  }
+}
+/* The fixed navigation must not cover an on-screen keyboard or active form field. */
+@supports selector(body:has(input:focus)) {
+  @media (max-width: 1023px) {
+    body:has(input:focus, textarea:focus, select:focus) .mobile-bottom-navigation {
+      display: none;
+    }
+  }
+}
