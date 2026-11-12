@@ -11414,7 +11414,7 @@ function AdminActivityPage() {
   }, [isAuthorized]);
 
   useEffect(() => {
-    if (!isAuthorized || !selectedUser) { setGigs([]); setConversations([]); setSelectedConversation(""); return; }
+    if (!isAuthorized || !selectedUser) { setGigs([]); setConversations([]); if (!isAuthorized) setSelectedConversation(""); return; }
     let mounted = true;
     const loadUser = async () => {
       const [offers, chats] = await Promise.all([
