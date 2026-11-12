@@ -7820,31 +7820,31 @@ function CreateServicePage() {
   }
 
   async function uploadServiceImage(file, pathPrefix) {
-    if (!file) return { publicUrl: null, filePath: null, error: null };
+    if (!file) return { publicUrl: null, filePath: null, error: new Error("Select a photo first.") };
+    if (!user?.id) return { publicUrl: null, filePath: null, error: new Error("Sign in as a seller before uploading a gig photo.") };
 
-    const validationError=validateUpload(file,"service-media");
-    if(validationError)return {publicUrl:null,filePath:null,error:new Error(validationError)};
-    const filePath=uniqueUploadPath(user.id,file);
+    const validationError = validateUpload(file, "service-media");
+    if (validationError) return { publicUrl: null, filePath: null, error: new Error(validationError) };
 
-    const { error: uploadError } = await supabase.storage
-      .from("service-media")
-      .upload(filePath, file, { contentType: file.type, cacheControl: "3600", upsert: false });
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      if (authError || !authData?.session?.access_token) {
+        throw new Error("Your session has expired. Sign in again before uploading.");
+      }
+      const filePath = uniqueUploadPath(user.id, file);
+      const { data: uploaded, error: uploadError } = await supabase.storage
+        .from("service-media")
+        .upload(filePath, file, { contentType: file.type, cacheControl: "3600", upsert: false });
 
-    if (uploadError) {
-      return {
-        publicUrl: null,
-        filePath: null,
-        error: uploadError,
-      };
+      if (uploadError) throw uploadError;
+      if (!uploaded?.path) throw new Error("Storage did not confirm that the gig image was saved.");
+
+      const { data } = supabase.storage.from("service-media").getPublicUrl(filePath);
+      if (!data?.publicUrl) throw new Error("Gig image saved but no public URL was returned.");
+      return { publicUrl: data.publicUrl, filePath, error: null };
+    } catch (error) {
+      return { publicUrl: null, filePath: null, error };
     }
-
-    const { data } = supabase.storage.from("service-media").getPublicUrl(filePath);
-
-    return {
-      publicUrl: data?.publicUrl || null,
-      filePath,
-      error: null,
-    };
   }
 
   async function handleSubmit(event) {
