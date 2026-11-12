@@ -13,6 +13,7 @@ import OrderMilestonesPanel from "./components/OrderMilestonesPanel";
 import SellerPortfolioPage from "./pages/SellerPortfolioPage";
 import MarketplaceSearchPage from "./pages/MarketplaceSearchPage";
 import FindSellersPage from "./pages/FindSellersPage";
+import { validateUpload, uniqueUploadPath, readableUploadError } from "./lib/uploadUtils";
 async function sendNotification({ userId, type, title, message, link }) {
   if (!userId) return;
 
@@ -9800,51 +9801,51 @@ await sendNotification({
 
   async function handleFileUpload(event) {
     event.preventDefault();
-
-    if (!user || !order || !selectedFile) return;
-
+    if (!user || !order || !selectedFile) {
+      setErrorText("Choose a file to upload to this order.");
+      return;
+    }
     if (isSuspended(profile)) {
       setErrorText("Your account is suspended. This action is not allowed.");
       return;
     }
-
+    const validationError = validateUpload(selectedFile, "order-files");
+    if (validationError) { setErrorText(validationError); return; }
+    const filePath = uniqueUploadPath(order.id, selectedFile);
     setUploadingFile(true);
     setMessage("");
     setErrorText("");
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from("order-files")
+        .upload(filePath, selectedFile, {
+          contentType: selectedFile.type || "application/octet-stream",
+          upsert: false,
+          cacheControl: "3600",
+        });
+      if (uploadError) throw uploadError;
 
-    const safeFileName = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const filePath = `${order.id}/${Date.now()}-${safeFileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("order-files")
-      .upload(filePath, selectedFile);
-
-    if (uploadError) {
-      setErrorText(uploadError.message);
+      const { error: insertError } = await supabase.from("order_files").insert({
+        order_id: order.id,
+        uploader_id: user.id,
+        file_name: selectedFile.name,
+        file_path: filePath,
+        file_type: fileType,
+        file_size: selectedFile.size,
+      });
+      if (insertError) {
+        const cleanup = await supabase.storage.from("order-files").remove([filePath]);
+        throw new Error(`File uploaded but the order record was rejected: ${insertError.message}${cleanup.error ? ". Please contact support to remove the unlinked file." : ". The unused file was removed."}`);
+      }
+      setSelectedFile(null);
+      setFileType("attachment");
+      setMessage("File attached to this order successfully.");
+      await fetchOrderFiles();
+    } catch (error) {
+      setErrorText(readableUploadError(error));
+    } finally {
       setUploadingFile(false);
-      return;
     }
-
-    const { error: insertError } = await supabase.from("order_files").insert({
-      order_id: order.id,
-      uploader_id: user.id,
-      file_name: selectedFile.name,
-      file_path: filePath,
-      file_type: fileType,
-      file_size: selectedFile.size,
-    });
-
-    if (insertError) {
-      setErrorText(insertError.message);
-      setUploadingFile(false);
-      return;
-    }
-
-    setSelectedFile(null);
-    setFileType("attachment");
-    setMessage("File uploaded successfully.");
-    await fetchOrderFiles();
-    setUploadingFile(false);
   }
 
   async function handleDownloadFile(filePath) {
@@ -10511,10 +10512,10 @@ for (const admin of admins || []) {
         )}
       </div>
 
-      <div className="mt-8 rounded-3xl border bg-white p-6 shadow-sm">
+      <div className="mt-8 rounded-3xl border bg-white p-4 shadow-sm sm:p-6">
         <h2 className="text-2xl font-bold">Order Files</h2>
         <p className="mt-2 text-muted">
-          Upload delivery files, buyer attachments, or revision files related to this order.
+          Attach your completed work, supporting documents or revision files to this order. Maximum 50 MB per file; larger projects can be split into several files. Files are private to order participants.
         </p>
 
         <form onSubmit={handleFileUpload} className="mt-6 grid gap-4 rounded-2xl bg-slate-50 p-5">
@@ -10529,15 +10530,23 @@ for (const admin of admins || []) {
               <option value="revision">Revision File</option>
             </select>
 
-            <input
-              className="rounded-xl border bg-white px-4 py-3 outline-none md:col-span-2"
-              type="file"
-              onChange={(event) => setSelectedFile(event.target.files?.[0] || null)}
-            />
+            <label className="min-w-0 text-sm font-semibold text-slate-700 md:col-span-2">
+              Select order file
+              <input
+                className="mt-2 min-h-11 w-full rounded-xl border bg-white px-3 py-3 text-base"
+                type="file"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] || null;
+                  setSelectedFile(file);
+                  setErrorText(file ? validateUpload(file,"order-files") || "" : "");
+                }}
+              />
+              <span className="mt-1 block break-all text-xs font-normal text-slate-600">{selectedFile ? `${selectedFile.name} (${(selectedFile.size / 1048576).toFixed(1)} MB)` : "Documents, compressed archives, CAD and other project files are supported."}</span>
+            </label>
           </div>
 
           <button
-            disabled={uploadingFile || !selectedFile || isSuspended(profile)}
+            disabled={uploadingFile || !selectedFile || Boolean(selectedFile && validateUpload(selectedFile,"order-files")) || isSuspended(profile)}
             className="rounded-full bg-primary px-6 py-3 font-semibold text-white disabled:opacity-60"
           >
             {uploadingFile ? "Uploading..." : "Upload File"}
