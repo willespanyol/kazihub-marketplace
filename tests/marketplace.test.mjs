@@ -132,3 +132,20 @@ test("seller vacation mode controls are routed separately from admin", () => {
  assert.ok(page.includes("max_active_orders:max"));
  assert.ok(app.includes("export default function App()"));
 });
+
+test("gig extras use server-verified order snapshots and a seller-owned manager", () => {
+ const manager=readFileSync(new URL("../src/pages/ManageGigExtrasPage.jsx",import.meta.url),"utf8");
+ assert.ok(app.includes('<Route path="/services/:id/extras" element={<ManageGigExtrasPage />} />'));
+ assert.ok(app.includes('source: chosenExtras.length ? "service_with_extras" : "service_offer"'));
+ assert.ok(app.includes('gig_package_id: chosenExtras.length ? packageToBuy.id : null'));
+ assert.ok(app.includes('gig_extra_ids: chosenExtras.map(item=>item.id)'));
+ assert.ok(manager.includes('from("service_offer_extras").insert('));
+});
+test("order timeline and cancellation requests do not auto-refund payments", () => {
+ const management=readFileSync(new URL("../src/components/OrderManagementPanel.jsx",import.meta.url),"utf8");
+ assert.ok(app.includes('<OrderManagementPanel order={order} userId={user.id}'));
+ assert.ok(management.includes('rpc("request_order_cancellation"'));
+ assert.ok(management.includes('rpc("respond_order_cancellation"'));
+ assert.ok(management.includes('rpc("resolve_order_cancellation"'));
+ assert.ok(management.includes('payment/refund status reconciled'));
+});
