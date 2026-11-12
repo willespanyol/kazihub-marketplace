@@ -15,6 +15,7 @@ import MarketplaceSearchPage from "./pages/MarketplaceSearchPage";
 import FindSellersPage from "./pages/FindSellersPage";
 import SellerAvailabilityPage from "./pages/SellerAvailabilityPage";
 import OrderManagementPanel from "./components/OrderManagementPanel";
+import ManageGigExtrasPage from "./pages/ManageGigExtrasPage";
 import { validateUpload, uniqueUploadPath, readableUploadError } from "./lib/uploadUtils";
 async function sendNotification({ userId, type, title, message, link }) {
   if (!userId) return;
@@ -1130,6 +1131,8 @@ function ServiceDetailsPage() {
   const [orderError, setOrderError] = useState("");
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [packages, setPackages] = useState([]);
+  const [gigExtras, setGigExtras] = useState([]);
+  const [selectedGigExtraIds, setSelectedGigExtraIds] = useState([]);
   const [selectedPackageTier, setSelectedPackageTier] = useState("basic");
   const [isServiceSaved, setIsServiceSaved] = useState(false);
   const [savingService, setSavingService] = useState(false);
@@ -1175,7 +1178,13 @@ function ServiceDetailsPage() {
     setCreatingOrder(true);
     setOrderError("");
 
-    const price = Number(packageToBuy.price);
+    const chosenExtras = gigExtras.filter(item=>selectedGigExtraIds.includes(item.id));
+    if(chosenExtras.length && !packageToBuy.id){
+      setOrderError("Choose a listed package before adding extras.");
+      setCreatingOrder(false);
+      return;
+    }
+    const price = Math.round((Number(packageToBuy.price)+chosenExtras.reduce((total,item)=>total+Number(item.price),0))*100)/100;
     const platformFee = Math.round(price * 20) / 100;
     const sellerPayout = Math.round((price - platformFee) * 100) / 100;
 
@@ -1184,18 +1193,21 @@ function ServiceDetailsPage() {
       .insert({
         buyer_id: user.id,
         seller_id: offer.seller_id,
-        source: "service_offer",
+        source: chosenExtras.length ? "service_with_extras" : "service_offer",
+        gig_package_id: chosenExtras.length ? packageToBuy.id : null,
+        gig_extra_ids: chosenExtras.map(item=>item.id),
         service_offer_id: offer.id,
         custom_offer_id: null,
         project_request_id: null,
         title: `${offer.title} - ${packageToBuy.title}`,
-        description: packageToBuy.description || offer.description,
+        description: (packageToBuy.description || offer.description) + (chosenExtras.length
+          ? "\\n\\nSelected extras: " + chosenExtras.map(x=>x.title+" ("+x.price+" "+(packageToBuy.currency||offer.currency)+")").join(", ") : ""),
         price,
         currency: packageToBuy.currency || offer.currency || "USD",
         platform_fee: platformFee,
         seller_payout: sellerPayout,
-        delivery_days: Number(packageToBuy.delivery_days),
-        revisions: Number(packageToBuy.revisions),
+        delivery_days: Math.max(1,Number(packageToBuy.delivery_days)+chosenExtras.reduce((total,item)=>total+Number(item.delivery_days_delta),0)),
+        revisions: Number(packageToBuy.revisions)+chosenExtras.reduce((total,item)=>total+Number(item.extra_revisions),0),
         status: "payment_pending",
         payment_status: "unpaid",
         payment_method: "Remitly to M-Pesa",
@@ -1336,6 +1348,11 @@ await sendNotification({
       .order("price", { ascending: true });
 
     setPackages(packageData || []);
+    const {data: extrasData} = await supabase.from("service_offer_extras")
+      .select("id,title,description,price,delivery_days_delta,extra_revisions")
+      .eq("service_offer_id",id).eq("active",true).order("created_at");
+    setGigExtras(extrasData||[]);
+    setSelectedGigExtraIds([]);
 
     const { data: mediaData } = await supabase
       .from("service_offer_media")
@@ -1706,6 +1723,20 @@ await sendNotification({
               Ask questions, send project requirements, and agree on scope with the seller before ordering.
             </p>
 
+            {gigExtras.length>0&&<div className="mt-5 space-y-3 rounded-xl border bg-slate-50 p-4">
+              <h3 className="font-bold">Optional gig extras</h3>
+              {gigExtras.map(extra=><label key={extra.id} className="flex min-h-11 items-start gap-3 text-sm">
+                <input type="checkbox" className="mt-1 h-5 w-5 shrink-0 accent-teal-700" checked={selectedGigExtraIds.includes(extra.id)}
+                  onChange={event=>setSelectedGigExtraIds(current=>event.target.checked?[...current,extra.id]:current.filter(x=>x!==extra.id))}/>
+                <span><strong>{extra.title}</strong> · {offer.currency} {Number(extra.price).toFixed(2)}
+                 {extra.description&&<span className="block text-slate-600">{extra.description}</span>}
+                 <span className="block text-xs text-slate-500">Delivery {Number(extra.delivery_days_delta)>0?"+":""}{extra.delivery_days_delta} days · +{extra.extra_revisions} revisions</span></span>
+              </label>)}
+              <p className="border-t pt-3 text-sm font-bold">Total: {offer.currency} {(Math.round(((Number(selectedPackage?.price||offer.basic_price))+
+                gigExtras.filter(item=>selectedGigExtraIds.includes(item.id)).reduce((sum,item)=>sum+Number(item.price),0))*100)/100).toFixed(2)}</p>
+            </div>}
+            {user?.id===offer?.seller_id&&<Link to={`/services/${offer.id}/extras`}
+              className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline">Manage gig extras</Link>}
             <button
               type="button"
               onClick={handleBuySelectedPackage}
@@ -11696,6 +11727,7 @@ export default function App() {
         <Route path="/payment-settings" element={<PaymentSettingsPage />} />
         <Route path="/portfolio" element={<SellerPortfolioPage />} />
         <Route path="/availability" element={<SellerAvailabilityPage />} />
+        <Route path="/services/:id/extras" element={<ManageGigExtrasPage />} />
         <Route path="/seller-dashboard" element={<SellerDashboardPage />} />
         <Route path="/buyer-dashboard" element={<BuyerDashboardPage />} />
         <Route path="/admin" element={<AdminPage />} />
