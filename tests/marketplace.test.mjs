@@ -54,3 +54,14 @@ test("marketplace reports remain separate from public and admin activity routes"
   assert.ok(app.includes('from("account_blocks").insert('));
   assert.ok(app.includes("export default function App()"));
 });
+
+test("conversation offers render only within an authorized conversation", () => {
+  const page = readFileSync(new URL("../src/components/ConversationOffersPanel.jsx", import.meta.url), "utf8");
+  assert.ok(app.includes('<ConversationOffersPanel conversation={conversation} userId={user.id} />'));
+  assert.ok(page.includes("isSeller = userId && userId===conversation?.seller_id"));
+  assert.ok(page.includes("isBuyer = userId && userId===conversation?.buyer_id"));
+  assert.ok(page.includes('rpc("create_conversation_offer"'));
+  assert.ok(page.includes('rpc("accept_conversation_offer"'));
+  assert.ok(page.includes('rpc("respond_conversation_offer"'));
+  assert.ok(page.includes("navigate(`/orders/${data}`)"));
+});
