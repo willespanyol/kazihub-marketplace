@@ -106,3 +106,20 @@ test("public freelancer directory is indexed server-side and not an admin page",
  assert.ok(sellers.includes("p_verified_only:verified"));
  assert.ok(app.includes("export default function App()"));
 });
+
+test("order uploads validate size and keep storage and metadata consistent", () => {
+ const upload = readFileSync(new URL("../src/lib/uploadUtils.js",import.meta.url),"utf8");
+ assert.ok(upload.includes('export function validateUpload'));
+ assert.ok(upload.includes('"order-files": 50 * 1024 * 1024'));
+ assert.ok(upload.includes('crypto.randomUUID()'));
+ assert.ok(app.includes('uniqueUploadPath(order.id, selectedFile)'));
+ assert.ok(app.includes('validateUpload(selectedFile, "order-files")'));
+ assert.ok(app.includes('storage.from("order-files").remove([filePath])'));
+ assert.ok(app.includes('File attached to this order successfully.'));
+});
+test("other uploads validate against bucket size and mime restrictions", () => {
+ assert.ok(app.includes('validateUpload(profileImageFile,"profile-images")'));
+ assert.ok(app.includes('validateUpload(verificationDocumentFile,"seller-verification-files")'));
+ assert.ok(app.includes('validateUpload(serviceImageFile,"service-media")'));
+ assert.ok(app.includes('validateUpload(file,"service-media")'));
+});
