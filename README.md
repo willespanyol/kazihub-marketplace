@@ -40,7 +40,7 @@ The Truehost/cPanel and Netlify deployment artifacts are not used for production
 - Before activating payment automation, configure a supported processor, idempotent signed webhooks, refunds, payout reconciliation, provider-side receipt verification and legal treatment of held funds.
 
 ## Transactional notifications
-- Important in-app notification events are now enqueued idempotently in `public.notification_delivery_outbox`.
+- Important in-app notification events are now enqueued idempotently in `kazihub_internal.notification_delivery_outbox`.
 - This outbox contains notification IDs and recipient IDs, not credentials. It is inaccessible to ordinary users.
 - **Email is not being sent yet.** A server-side worker must be added with a verified sending domain and credentials held in a secret manager, not Vite environment variables.
 - The worker must authenticate as a trusted service, resolve the recipient's verified email in Supabase Auth, handle retries and respect notification preferences. It must never send private message bodies to external notification channels.
