@@ -16,6 +16,7 @@ import FindSellersPage from "./pages/FindSellersPage";
 import SellerAvailabilityPage from "./pages/SellerAvailabilityPage";
 import OrderManagementPanel from "./components/OrderManagementPanel";
 import OrderDisputeEvidencePanel from "./components/OrderDisputeEvidencePanel";
+import SellerPerformancePanel from "./components/SellerPerformancePanel";
 import ManageGigExtrasPage from "./pages/ManageGigExtrasPage";
 import { validateUpload, uniqueUploadPath, readableUploadError } from "./lib/uploadUtils";
 async function sendNotification({ userId, type, title, message, link }) {
@@ -3490,6 +3491,8 @@ function SellerDashboardPage() {
         <Stat title="Seller Rating" value={`${averageSellerRating} / 5`} />
       </div>
       )}
+
+      {activeSellerSection === "overview" && <SellerPerformancePanel userId={user?.id} />}
 
       {errorText && (
         <p className="mt-6 rounded-xl bg-red-50 p-4 text-sm font-medium text-red-700">
