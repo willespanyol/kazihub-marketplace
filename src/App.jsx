@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Search, ShieldCheck, CreditCard, Users, Star, ArrowRight, Bell, Heart, MessageCircle, ImagePlus, X, Menu, Home, LayoutDashboard, BriefcaseBusiness, UserRound, Grid2X2, LogOut, ChevronRight, Settings2 } from "lucide-react";
 import { categories } from "./data/categories";
 import { services } from "./data/services";
@@ -11281,7 +11281,7 @@ function AdminActivityPage() {
   }, [isAuthorized, selectedConversation]);
 
   if (authLoading) return <main className="mx-auto max-w-6xl p-8">Checking administrator access...</main>;
-  if (!isAuthorized) return <main className="mx-auto max-w-6xl p-8"><h1 className="text-2xl font-bold">Access denied</h1><p>Administrator access is required.</p></main>;
+  if (!isAuthorized) return <Navigate to={profile?.role === "seller" ? "/seller-dashboard" : user ? "/buyer-dashboard" : "/"} replace />;
 
   const chosen = accounts.find((account) => account.id === selectedUser);
   const relatedActivity = selectedUser ? activity.filter((event) => event.subject_user_id === selectedUser || event.actor_id === selectedUser) : activity;
