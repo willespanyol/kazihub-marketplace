@@ -701,7 +701,7 @@ function ServicesPage() {
           placeholder="Search services..."
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
-        />
+        aria-label="Search services" />
 
         <select
           className="rounded-xl border px-4 py-3 outline-none"
@@ -734,7 +734,7 @@ function ServicesPage() {
           placeholder="Min price"
           value={minPrice}
           onChange={(event) => setMinPrice(event.target.value)}
-        />
+        aria-label="Min price" />
 
         <input
           className="rounded-xl border px-4 py-3 outline-none"
@@ -743,7 +743,7 @@ function ServicesPage() {
           placeholder="Max price"
           value={maxPrice}
           onChange={(event) => setMaxPrice(event.target.value)}
-        />
+        aria-label="Max price" />
 
         <input
           className="rounded-xl border px-4 py-3 outline-none"
@@ -752,7 +752,7 @@ function ServicesPage() {
           placeholder="Max delivery days"
           value={maxDeliveryDays}
           onChange={(event) => setMaxDeliveryDays(event.target.value)}
-        />
+        aria-label="Max delivery days" />
 
         <button
           type="button"
@@ -1861,7 +1861,7 @@ function SignupPage() {
             onChange={(event) => setFullName(event.target.value)}
             required
             autoComplete="name"
-          />
+          aria-label="Full name" />
 
           <input
             className="rounded-xl border px-4 py-3 outline-none"
@@ -1871,7 +1871,7 @@ function SignupPage() {
             onChange={(event) => setEmail(event.target.value)}
             required
             autoComplete="email"
-          />
+          aria-label="Email address" />
 
           <input
             className="rounded-xl border px-4 py-3 outline-none"
@@ -1882,7 +1882,7 @@ function SignupPage() {
             required
             minLength={6}
             autoComplete="new-password"
-          />
+          aria-label="Password" />
 
           {message && (
             <p className="rounded-xl bg-green-50 p-4 text-sm font-medium text-green-700">
@@ -2015,7 +2015,7 @@ function LoginPage() {
             onChange={(event) => setEmail(event.target.value)}
             required
             autoComplete="email"
-          />
+          aria-label="Email address" />
 
           <input
             className="rounded-xl border px-4 py-3 outline-none"
@@ -2025,7 +2025,7 @@ function LoginPage() {
             onChange={(event) => setPassword(event.target.value)}
             required
             autoComplete="current-password"
-          />
+          aria-label="Password" />
 
           <div className="flex items-center justify-between text-sm text-slate-600">
             <p className="text-xs text-slate-500">
@@ -2095,7 +2095,7 @@ function ForgotPasswordPage() {
             onChange={(event) => setEmail(event.target.value)}
             required
             autoComplete="email"
-          />
+          aria-label="Email address" />
 
           {message && (
             <p className="rounded-xl bg-green-50 p-4 text-sm font-medium text-green-700">
@@ -2162,7 +2162,7 @@ function ResetPasswordPage() {
             required
             minLength={6}
             autoComplete="new-password"
-          />
+          aria-label="New password" />
 
           {message && (
             <p className="rounded-xl bg-green-50 p-4 text-sm font-medium text-green-700">
@@ -2587,7 +2587,7 @@ function ProfileSetupPage() {
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     placeholder="English, Swahili, Spanish"
                     required
-                  />
+                  aria-label="English, Swahili, Spanish" />
                 </label>
 
                 <label className="grid gap-2 text-sm font-semibold text-slate-700">
@@ -2642,7 +2642,7 @@ function ProfileSetupPage() {
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     placeholder="Design, Web Development, SEO"
                     required
-                  />
+                  aria-label="Design, Web Development, SEO" />
                 </label>
 
                 <label className="grid gap-2 text-sm font-semibold text-slate-700">
@@ -2665,7 +2665,7 @@ function ProfileSetupPage() {
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     placeholder="https://"
                     required
-                  />
+                  aria-label="https://" />
                 </label>
 
                 <label className="grid gap-2 text-sm font-semibold text-slate-700">
@@ -2676,7 +2676,7 @@ function ProfileSetupPage() {
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     placeholder="Marketing, Web Development, Design"
                     required
-                  />
+                  aria-label="Marketing, Web Development, Design" />
                 </label>
 
                 <label className="grid gap-2 text-sm font-semibold text-slate-700">
@@ -2703,7 +2703,7 @@ function ProfileSetupPage() {
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     placeholder="Startup, Enterprise, Agency"
                     required
-                  />
+                  aria-label="Startup, Enterprise, Agency" />
                 </label>
 
                 <label className="grid gap-2 text-sm font-semibold text-slate-700">
@@ -2714,7 +2714,7 @@ function ProfileSetupPage() {
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     placeholder="Website, Branding, Marketing Campaign"
                     required
-                  />
+                  aria-label="Website, Branding, Marketing Campaign" />
                 </label>
 
                 <label className="grid gap-2 text-sm font-semibold text-slate-700">
@@ -2735,7 +2735,7 @@ function ProfileSetupPage() {
                     className="min-h-[120px] rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none"
                     placeholder="I prefer email and scheduled calls for project discussions."
                     required
-                  />
+                  aria-label="I prefer email and scheduled calls for project discussions." />
                 </label>
               </div>
             )}
@@ -3659,7 +3659,7 @@ function SellerDashboardPage() {
               value={verificationLegalName}
               onChange={(event) => setVerificationLegalName(event.target.value)}
               required
-            />
+            aria-label="Legal name" />
 
             <div className="grid gap-4 md:grid-cols-2">
               <input
@@ -3668,7 +3668,7 @@ function SellerDashboardPage() {
                 value={verificationCountry}
                 onChange={(event) => setVerificationCountry(event.target.value)}
                 required
-              />
+              aria-label="Country" />
 
               <select
                 className="rounded-xl border bg-white px-4 py-3 outline-none"
@@ -3763,14 +3763,14 @@ function SellerDashboardPage() {
             placeholder="Professional headline"
             value={profileHeadline}
             onChange={(event) => setProfileHeadline(event.target.value)}
-          />
+          aria-label="Professional headline" />
 
           <textarea
             className="min-h-32 rounded-xl border bg-white px-4 py-3 outline-none"
             placeholder="Seller bio"
             value={profileBio}
             onChange={(event) => setProfileBio(event.target.value)}
-          />
+          aria-label="Seller bio" />
 
           <div className="grid gap-4 md:grid-cols-2">
             <input
@@ -3778,14 +3778,14 @@ function SellerDashboardPage() {
               placeholder="Country"
               value={profileCountry}
               onChange={(event) => setProfileCountry(event.target.value)}
-            />
+            aria-label="Country" />
 
             <input
               className="rounded-xl border bg-white px-4 py-3 outline-none"
               placeholder="Languages"
               value={profileLanguages}
               onChange={(event) => setProfileLanguages(event.target.value)}
-            />
+            aria-label="Languages" />
           </div>
 
           <textarea
@@ -3793,14 +3793,14 @@ function SellerDashboardPage() {
             placeholder="Skills"
             value={profileSkills}
             onChange={(event) => setProfileSkills(event.target.value)}
-          />
+          aria-label="Skills" />
 
           <input
             className="rounded-xl border bg-white px-4 py-3 outline-none"
             placeholder="Website or portfolio URL"
             value={profileWebsiteUrl}
             onChange={(event) => setProfileWebsiteUrl(event.target.value)}
-          />
+          aria-label="Website or portfolio URL" />
 
           <button
             disabled={savingProfile}
@@ -3977,7 +3977,7 @@ function SellerDashboardPage() {
                 value={requestOfferMessage}
                 onChange={(event) => setRequestOfferMessage(event.target.value)}
                 required
-              />
+              aria-label="Write your message to the buyer. Explain scope, delivery, and what you need to start." />
 
               <div className="grid gap-4 md:grid-cols-4">
                 <input
@@ -3988,7 +3988,7 @@ function SellerDashboardPage() {
                   value={requestOfferPrice}
                   onChange={(event) => setRequestOfferPrice(event.target.value)}
                   required
-                />
+                aria-label="Offer price" />
 
                 <select
                   className="rounded-xl border px-4 py-3 outline-none"
@@ -4015,7 +4015,7 @@ function SellerDashboardPage() {
                   value={requestOfferDeliveryDays}
                   onChange={(event) => setRequestOfferDeliveryDays(event.target.value)}
                   required
-                />
+                aria-label="Delivery days" />
 
                 <input
                   className="rounded-xl border px-4 py-3 outline-none"
@@ -4025,7 +4025,7 @@ function SellerDashboardPage() {
                   value={requestOfferRevisions}
                   onChange={(event) => setRequestOfferRevisions(event.target.value)}
                   required
-                />
+                aria-label="Revisions" />
               </div>
 
               <button
@@ -6495,7 +6495,7 @@ async function cancelOrderFromDispute(dispute) {
                 }
               }}
               required
-            />
+            aria-label="Category name" />
 
             <input
               className="rounded-xl border bg-white px-4 py-3 outline-none"
@@ -6503,7 +6503,7 @@ async function cancelOrderFromDispute(dispute) {
               value={categorySlug}
               onChange={(event) => setCategorySlug(event.target.value)}
               required
-            />
+            aria-label="Slug" />
           </div>
 
           <textarea
@@ -6512,7 +6512,7 @@ async function cancelOrderFromDispute(dispute) {
             value={categoryDescription}
             onChange={(event) => setCategoryDescription(event.target.value)}
             required
-          />
+          aria-label="Category description" />
 
           <input
             className="rounded-xl border bg-white px-4 py-3 outline-none"
@@ -6520,7 +6520,7 @@ async function cancelOrderFromDispute(dispute) {
             type="number"
             value={categoryOrder}
             onChange={(event) => setCategoryOrder(event.target.value)}
-          />
+          aria-label="Display order" />
 
           <button
             disabled={savingCategory}
@@ -7173,7 +7173,7 @@ function SupportPage() {
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
                     required
-                  />
+                  aria-label="Brief description of your issue" />
                 </div>
 
                 <div>
@@ -7215,7 +7215,7 @@ function SupportPage() {
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     required
-                  />
+                  aria-label="Provide details about your issue" />
                 </div>
 
                 <button
@@ -7920,7 +7920,7 @@ function CreateServicePage() {
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               required
-            />
+            aria-label="Service title" />
 
             <select
               className="rounded-xl border px-4 py-3 outline-none"
@@ -7942,7 +7942,7 @@ function CreateServicePage() {
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               required
-            />
+            aria-label="Describe your service clearly. Include what the buyer receives, what you need from them, and what is excluded." />
 
             <select
               className="rounded-xl border px-4 py-3 outline-none"
@@ -8045,7 +8045,7 @@ function CreateServicePage() {
               placeholder="Video URL, for example YouTube, Vimeo, Loom, or portfolio video URL"
               value={videoUrl}
               onChange={(event) => setVideoUrl(event.target.value)}
-            />
+            aria-label="Video URL, for example YouTube, Vimeo, Loom, or portfolio video URL" />
           </section>
 
           <section className="grid gap-4">
@@ -8054,29 +8054,29 @@ function CreateServicePage() {
             <div className="grid gap-5 lg:grid-cols-3">
               <div className="rounded-2xl border p-5">
                 <h3 className="font-bold">Basic Package</h3>
-                <label className="mt-4 block text-sm font-semibold text-slate-700">Package name <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package title" value={basicTitle} onChange={(event) => setBasicTitle(event.target.value)} required /></label>
-                <label className="mt-4 block text-sm font-semibold text-slate-700">What is included <span className="text-red-600">*</span><textarea className="mt-2 min-h-28 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package description" value={basicDescription} onChange={(event) => setBasicDescription(event.target.value)} required /></label>
-                <label className="mt-4 block text-sm font-semibold text-slate-700">Price <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="5" step="0.01" placeholder="Price" value={basicPackagePrice} onChange={(event) => setBasicPackagePrice(event.target.value)} required /></label>
-                <label className="mt-4 block text-sm font-semibold text-slate-700">Delivery time (days) <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="1" placeholder="Delivery days" value={basicPackageDeliveryDays} onChange={(event) => setBasicPackageDeliveryDays(event.target.value)} required /></label>
-                <label className="mt-4 block text-sm font-semibold text-slate-700">Included revisions <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="0" placeholder="Revisions" value={basicPackageRevisions} onChange={(event) => setBasicPackageRevisions(event.target.value)} required /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Package name <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package title" value={basicTitle} onChange={(event) => setBasicTitle(event.target.value)} required aria-label="Package title" /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">What is included <span className="text-red-600">*</span><textarea className="mt-2 min-h-28 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package description" value={basicDescription} onChange={(event) => setBasicDescription(event.target.value)} required aria-label="Package description" /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Price <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="5" step="0.01" placeholder="Price" value={basicPackagePrice} onChange={(event) => setBasicPackagePrice(event.target.value)} required aria-label="Price" /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Delivery time (days) <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="1" placeholder="Delivery days" value={basicPackageDeliveryDays} onChange={(event) => setBasicPackageDeliveryDays(event.target.value)} required aria-label="Delivery days" /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Included revisions <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="0" placeholder="Revisions" value={basicPackageRevisions} onChange={(event) => setBasicPackageRevisions(event.target.value)} required aria-label="Revisions" /></label>
               </div>
 
               <div className="rounded-2xl border p-5">
                 <h3 className="font-bold">Standard Package</h3>
-                <label className="mt-4 block text-sm font-semibold text-slate-700">Package name <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package title" value={standardTitle} onChange={(event) => setStandardTitle(event.target.value)} required /></label>
-                <label className="mt-4 block text-sm font-semibold text-slate-700">What is included <span className="text-red-600">*</span><textarea className="mt-2 min-h-28 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package description" value={standardDescription} onChange={(event) => setStandardDescription(event.target.value)} required /></label>
-                <label className="mt-4 block text-sm font-semibold text-slate-700">Price <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="5" step="0.01" placeholder="Price" value={standardPrice} onChange={(event) => setStandardPrice(event.target.value)} required /></label>
-                <label className="mt-4 block text-sm font-semibold text-slate-700">Delivery time (days) <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="1" placeholder="Delivery days" value={standardDeliveryDays} onChange={(event) => setStandardDeliveryDays(event.target.value)} required /></label>
-                <label className="mt-4 block text-sm font-semibold text-slate-700">Included revisions <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="0" placeholder="Revisions" value={standardRevisions} onChange={(event) => setStandardRevisions(event.target.value)} required /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Package name <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package title" value={standardTitle} onChange={(event) => setStandardTitle(event.target.value)} required aria-label="Package title" /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">What is included <span className="text-red-600">*</span><textarea className="mt-2 min-h-28 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package description" value={standardDescription} onChange={(event) => setStandardDescription(event.target.value)} required aria-label="Package description" /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Price <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="5" step="0.01" placeholder="Price" value={standardPrice} onChange={(event) => setStandardPrice(event.target.value)} required aria-label="Price" /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Delivery time (days) <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="1" placeholder="Delivery days" value={standardDeliveryDays} onChange={(event) => setStandardDeliveryDays(event.target.value)} required aria-label="Delivery days" /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Included revisions <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="0" placeholder="Revisions" value={standardRevisions} onChange={(event) => setStandardRevisions(event.target.value)} required aria-label="Revisions" /></label>
               </div>
 
               <div className="rounded-2xl border p-5">
                 <h3 className="font-bold">Premium Package</h3>
-                <label className="mt-4 block text-sm font-semibold text-slate-700">Package name <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package title" value={premiumTitle} onChange={(event) => setPremiumTitle(event.target.value)} required /></label>
-                <label className="mt-4 block text-sm font-semibold text-slate-700">What is included <span className="text-red-600">*</span><textarea className="mt-2 min-h-28 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package description" value={premiumDescription} onChange={(event) => setPremiumDescription(event.target.value)} required /></label>
-                <label className="mt-4 block text-sm font-semibold text-slate-700">Price <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="5" step="0.01" placeholder="Price" value={premiumPrice} onChange={(event) => setPremiumPrice(event.target.value)} required /></label>
-                <label className="mt-4 block text-sm font-semibold text-slate-700">Delivery time (days) <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="1" placeholder="Delivery days" value={premiumDeliveryDays} onChange={(event) => setPremiumDeliveryDays(event.target.value)} required /></label>
-                <label className="mt-4 block text-sm font-semibold text-slate-700">Included revisions <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="0" placeholder="Revisions" value={premiumRevisions} onChange={(event) => setPremiumRevisions(event.target.value)} required /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Package name <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package title" value={premiumTitle} onChange={(event) => setPremiumTitle(event.target.value)} required aria-label="Package title" /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">What is included <span className="text-red-600">*</span><textarea className="mt-2 min-h-28 w-full rounded-xl border px-4 py-3 outline-none" placeholder="Package description" value={premiumDescription} onChange={(event) => setPremiumDescription(event.target.value)} required aria-label="Package description" /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Price <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="5" step="0.01" placeholder="Price" value={premiumPrice} onChange={(event) => setPremiumPrice(event.target.value)} required aria-label="Price" /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Delivery time (days) <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="1" placeholder="Delivery days" value={premiumDeliveryDays} onChange={(event) => setPremiumDeliveryDays(event.target.value)} required aria-label="Delivery days" /></label>
+                <label className="mt-4 block text-sm font-semibold text-slate-700">Included revisions <span className="text-red-600">*</span><input className="mt-2 w-full rounded-xl border px-4 py-3 outline-none" type="number" min="0" placeholder="Revisions" value={premiumRevisions} onChange={(event) => setPremiumRevisions(event.target.value)} required aria-label="Revisions" /></label>
               </div>
             </div>
           </section>
@@ -8509,7 +8509,7 @@ function EditServicePage() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
-              />
+              aria-label="Service title" />
 
               <select
                 className="rounded-xl border px-4 py-3 outline-none"
@@ -8531,7 +8531,7 @@ function EditServicePage() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 required
-              />
+              aria-label="Describe your service clearly." />
 
               <label className="text-sm font-semibold">
                 Currency
@@ -8596,7 +8596,7 @@ function EditServicePage() {
               placeholder="YouTube, Vimeo, Loom, or portfolio video URL"
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-            />
+            aria-label="YouTube, Vimeo, Loom, or portfolio video URL" />
           </div>
 
           <div className="rounded-2xl bg-slate-100 p-6">
@@ -8916,7 +8916,7 @@ function ProjectRequestsPage() {
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 required
-              />
+              aria-label="Project title" />
 
               <select
                 className="rounded-xl border px-4 py-3 outline-none"
@@ -8938,7 +8938,7 @@ function ProjectRequestsPage() {
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 required
-              />
+              aria-label="Describe what you need. Include location, files available, deadline, and expected deliverables." />
 
               <div className="grid gap-4 md:grid-cols-3">
                 <input
@@ -8948,7 +8948,7 @@ function ProjectRequestsPage() {
                   min="0"
                   value={budgetMin}
                   onChange={(event) => setBudgetMin(event.target.value)}
-                />
+                aria-label="Min budget" />
 
                 <input
                   className="rounded-xl border px-4 py-3 outline-none"
@@ -8957,7 +8957,7 @@ function ProjectRequestsPage() {
                   min="0"
                   value={budgetMax}
                   onChange={(event) => setBudgetMax(event.target.value)}
-                />
+                aria-label="Max budget" />
 
                 <select
                   className="rounded-xl border px-4 py-3 outline-none"
@@ -9094,7 +9094,7 @@ function ProjectRequestsPage() {
                 value={offerMessage}
                 onChange={(event) => setOfferMessage(event.target.value)}
                 required
-              />
+              aria-label="Write your message to the buyer. Explain your scope, deliverables, assumptions, and what you need to start." />
 
               <div className="grid gap-4 md:grid-cols-4">
                 <input
@@ -9105,7 +9105,7 @@ function ProjectRequestsPage() {
                   value={offerPrice}
                   onChange={(event) => setOfferPrice(event.target.value)}
                   required
-                />
+                aria-label="Offer price" />
 
                 <select
                   className="rounded-xl border px-4 py-3 outline-none"
@@ -9132,7 +9132,7 @@ function ProjectRequestsPage() {
                   value={offerDeliveryDays}
                   onChange={(event) => setOfferDeliveryDays(event.target.value)}
                   required
-                />
+                aria-label="Delivery days" />
 
                 <input
                   className="rounded-xl border px-4 py-3 outline-none"
@@ -9142,7 +9142,7 @@ function ProjectRequestsPage() {
                   value={offerRevisions}
                   onChange={(event) => setOfferRevisions(event.target.value)}
                   required
-                />
+                aria-label="Revisions" />
               </div>
 
               <button
@@ -10120,7 +10120,7 @@ for (const admin of admins || []) {
                     placeholder="Optional payout note. Add preferred payout method, account details, or any payout instructions."
                     value={payoutNote}
                     onChange={(event) => setPayoutNote(event.target.value)}
-                  />
+                  aria-label="Optional payout note. Add preferred payout method, account details, or any payout instructions." />
 
                   <button
                     disabled={requestingPayout || isSuspended(profile)}
@@ -10165,7 +10165,7 @@ for (const admin of admins || []) {
         placeholder="Add a delivery note for the buyer. Mention delivered files, assumptions, and anything the buyer should review."
         value={deliveryNote}
         onChange={(event) => setDeliveryNote(event.target.value)}
-      />
+      aria-label="Add a delivery note for the buyer. Mention delivered files, assumptions, and anything the buyer should review." />
 
       <button
         onClick={handleDeliverOrder}
@@ -10184,7 +10184,7 @@ for (const admin of admins || []) {
         placeholder="Optional completion note for the seller."
         value={completionNote}
         onChange={(event) => setCompletionNote(event.target.value)}
-      />
+      aria-label="Optional completion note for the seller." />
 
       <button
         onClick={handleCompleteOrder}
@@ -10199,7 +10199,7 @@ for (const admin of admins || []) {
         placeholder="Explain what needs to be revised."
         value={revisionNote}
         onChange={(event) => setRevisionNote(event.target.value)}
-      />
+      aria-label="Explain what needs to be revised." />
 
       <button
         onClick={handleRequestRevision}
@@ -10241,7 +10241,7 @@ for (const admin of admins || []) {
               placeholder="Add your order requirements here. Include files, links, examples, or any special instructions."
               value={orderRequirements}
               onChange={(event) => setOrderRequirements(event.target.value)}
-            />
+            aria-label="Add your order requirements here. Include files, links, examples, or any special instructions." />
 
             <button
               disabled={submittingRequirements || isSuspended(profile)}
@@ -10296,7 +10296,7 @@ for (const admin of admins || []) {
               placeholder="Write your review of the seller's work, communication, quality, and delivery."
               value={reviewComment}
               onChange={(event) => setReviewComment(event.target.value)}
-            />
+            aria-label="Write your review of the seller's work, communication, quality, and delivery." />
 
             <button
               disabled={submittingReview || isSuspended(profile)}
@@ -10478,7 +10478,7 @@ for (const admin of admins || []) {
               value={disputeDescription}
               onChange={(event) => setDisputeDescription(event.target.value)}
               required
-            />
+            aria-label="Explain the issue clearly. Include what happened, what you are requesting, and any evidence already uploaded." />
 
             <button
               disabled={submittingDispute}
@@ -10539,7 +10539,7 @@ for (const admin of admins || []) {
             value={newMessage}
             onChange={(event) => setNewMessage(event.target.value)}
             required
-          />
+          aria-label="Write a message about this order" />
 
           <button
             disabled={actionLoading || !newMessage.trim() || isSuspended(profile)}
