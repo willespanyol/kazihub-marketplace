@@ -2,25 +2,82 @@
 @tailwind components;
 @tailwind utilities;
 
-* {
-  box-sizing: border-box;
+:root {
+  font-synthesis: none;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-top: 5rem;
 }
-
+* { box-sizing: border-box; }
+html { min-width: 0; scroll-behavior: smooth; }
 body {
   margin: 0;
+  min-width: 0;
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: #f8fafc;
   color: #0f172a;
+  overflow-wrap: break-word;
 }
-
-a {
-  text-decoration: none;
-  color: inherit;
+#root { min-height: 100dvh; min-width: 0; }
+a { text-decoration: none; color: inherit; }
+button, input, select, textarea { font: inherit; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button, select, input[type="checkbox"], input[type="radio"] { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: 0.65; }
+:focus-visible {
+  outline: 3px solid #0f766e;
+  outline-offset: 3px;
 }
-
-button,
-input,
-select,
-textarea {
-  font-family: inherit;
+img, video, iframe { max-width: 100%; }
+img { height: auto; }
+textarea { resize: vertical; }
+input, select, textarea { max-width: 100%; }
+a, button { touch-action: manipulation; }
+main, section, article, aside, form, .grid, .flex { min-width: 0; }
+.grid > *, .flex > * { min-width: 0; }
+table { border-collapse: collapse; }
+.overflow-x-auto { -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+.mobile-bottom-navigation { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.mobile-bottom-navigation a { touch-action: manipulation; }
+@media (max-width: 1023px) {
+  #root { padding-bottom: calc(62px + env(safe-area-inset-bottom, 0px)); }
+  footer { padding-bottom: 1rem; }
+}
+@media (max-width: 639px) {
+  html { scroll-padding-top: 4.5rem; }
+  body { font-size: 15px; line-height: 1.5; }
+  main { width: 100%; overflow-wrap: anywhere; }
+  main > section { min-width: 0; }
+  main h1 { font-size: clamp(1.6rem, 7.3vw, 2.15rem); line-height: 1.18; letter-spacing: -0.025em; }
+  main h2 { line-height: 1.25; }
+  main .py-20 { padding-top: 3.5rem; padding-bottom: 3.5rem; }
+  main .py-16 { padding-top: 2.5rem; padding-bottom: 2.5rem; }
+  main .py-12 { padding-top: 2rem; padding-bottom: 2rem; }
+  main .p-8 { padding: 1.25rem; }
+  main .p-6 { padding: 1rem; }
+  main .px-8 { padding-left: 1.25rem; padding-right: 1.25rem; }
+  main .gap-10 { gap: 1.75rem; }
+  main .gap-8 { gap: 1.5rem; }
+  main .rounded-3xl { border-radius: 1.25rem; }
+  main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  main select, main textarea { font-size: 16px; }
+  main input[type="file"] { width: 100%; font-size: 14px; }
+  main textarea { min-height: 5.5rem; }
+  main :is(button, a)[class*="px-"][class*="py-"] { min-height: 42px; }
+  main .overflow-x-auto { border-radius: 0.75rem; scrollbar-width: thin; }
+  main .overflow-x-auto > table { font-size: 13px; }
+  main .overflow-x-auto th, main .overflow-x-auto td { padding: 0.75rem; }
+  main [class*="min-w-[700px]"], main [class*="min-w-[760px]"],
+  main [class*="min-w-[800px]"], main [class*="min-w-[900px]"],
+  main [class*="min-w-[1000px]"] { max-width: none; }
+  main .whitespace-nowrap { max-width: 100%; }
+  main .flex-wrap { row-gap: 0.5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
