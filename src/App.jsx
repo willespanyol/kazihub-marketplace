@@ -11,6 +11,7 @@ import ConversationOffersPanel from "./components/ConversationOffersPanel";
 import MyOffersPage from "./pages/MyOffersPage";
 import OrderMilestonesPanel from "./components/OrderMilestonesPanel";
 import SellerPortfolioPage from "./pages/SellerPortfolioPage";
+import MarketplaceSearchPage from "./pages/MarketplaceSearchPage";
 async function sendNotification({ userId, type, title, message, link }) {
   if (!userId) return;
 
@@ -11654,7 +11655,7 @@ export default function App() {
       <div id="main-content" tabIndex={-1} className="min-w-0">
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/services" element={<ServicesPage />} />
+        <Route path="/services" element={<MarketplaceSearchPage />} />
         <Route path="/categories" element={<AllCategoriesPage />} />
         <Route path="/categories/:slug" element={<CategoryPage />} />
         <Route path="/services/:id" element={<ServiceDetailsPage />} />
