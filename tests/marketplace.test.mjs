@@ -42,7 +42,7 @@ test("payment state guards are delegated to the database", () => {
   assert.match(app, /payment_verified_at/);
 });
 test("payment settings exist for buyers and sellers", () => {
-  assert.match(app, /<Route\\s+path="\\/payment-settings"\\s+element=\\{<PaymentSettingsPage\\s*\\/>\\}/);
-  assert.match(app, /payout_destination_id:\\s*selectedPayoutDestinationId/);
-  assert.match(app, /payoutPhoneVerified/);
+  assert.ok(app.includes('<Route path="/payment-settings" element={<PaymentSettingsPage />} />'));
+  assert.ok(app.includes("payout_destination_id: selectedPayoutDestinationId"));
+  assert.ok(app.includes("payoutPhoneVerified"));
 });
