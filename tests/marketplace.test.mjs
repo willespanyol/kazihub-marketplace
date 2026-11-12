@@ -46,3 +46,11 @@ test("payment settings exist for buyers and sellers", () => {
   assert.ok(app.includes("payout_destination_id: selectedPayoutDestinationId"));
   assert.ok(app.includes("payoutPhoneVerified"));
 });
+
+test("marketplace reports remain separate from public and admin activity routes", () => {
+  assert.ok(app.includes('<Route path="/admin/reports" element={<AdminReportsPage />} />'));
+  assert.ok(app.includes("function ConversationPage()"));
+  assert.ok(app.includes('from("marketplace_reports").insert('));
+  assert.ok(app.includes('from("account_blocks").insert('));
+  assert.ok(app.includes("export default function App()"));
+});
