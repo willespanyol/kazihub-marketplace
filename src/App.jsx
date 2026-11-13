@@ -73,6 +73,7 @@ function Header() {
   const notificationRef = useRef(null);
 
   const [notifications, setNotifications] = useState([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   useEffect(() => {
@@ -94,22 +95,21 @@ function Header() {
 const fetchNotifications = useCallback(async () => {
   if (!user) {
     setNotifications([]);
+    setUnreadNotificationCount(0);
     return;
   }
 
   setLoadingNotifications(true);
 
-  const { data, error } = await supabase
-    .from("notifications")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(10);
+  const [recentResult, countResult] = await Promise.all([
+    supabase.from("notifications").select("*").eq("user_id", user.id)
+      .order("created_at", { ascending: false }).limit(10),
+    supabase.from("notifications").select("id", { count: "exact", head: true })
+      .eq("user_id", user.id).eq("is_read", false),
+  ]);
 
-  if (!error) {
-    setNotifications(data || []);
-  }
-
+  if (!recentResult.error) setNotifications(recentResult.data || []);
+  if (!countResult.error) setUnreadNotificationCount(countResult.count ?? 0);
   setLoadingNotifications(false);
 }, [user]);
 
@@ -172,9 +172,6 @@ async function markAllNotificationsRead() {
   await fetchNotifications();
 }
 
-const unreadNotificationCount = notifications.filter(
-  (notification) => !notification.is_read
-).length;
   async function handleLogout() {
     await signOut();
     window.location.href = "/";

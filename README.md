@@ -24,7 +24,7 @@ React/Vite frontend with a Supabase backend, deployed from GitHub to Vercel.
 
 Push to `main`; if the existing Vercel project has GitHub integration and automatic production deployments enabled, Vercel builds the commit. Check the actual Vercel deployment and test authentication, marketplace listings, and client-side routes.
 
-The Truehost/cPanel and Netlify deployment artifacts are not used for production.
+Vercel is the sole supported deployment target. The obsolete Netlify configuration file has been removed.\n\nTo stop legacy Netlify checks in GitHub, disconnect the Netlify site from this repository in Netlify and remove the Netlify GitHub App repository access if it is no longer needed. Do not delete or change Vercel DNS or the production domain.
 
 ## Quality gates
 - `npm test` checks route/export regressions, public/admin path separation, basic authentication and configuration invariants.
