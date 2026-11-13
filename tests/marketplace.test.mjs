@@ -13,7 +13,7 @@ test("marketplace App, never AdminActivityPage, is the single default export", (
 });
 test("the public homepage and admin activity have separate React routes", () => {
   assert.match(app, /<Route\s+path="\/"\s+element=\{<HomePage\s*\/>\}/);
-  assert.match(app, /<Route\s+path="\/admin\/activity"\s+element=\{<AdminActivityPage\s*\/>\}/);
+  assert.match(app, /<Route\s+path="\/admin\/activity"\s+element=\{<AccountRoleRoute allowedRoles=\{\["admin"\]\}><AdminActivityPage\s*\/>/);
   assert.match(app, /profile\?\.role\s*===\s*"admin"/);
 });
 test("private admin activity checks an active administrator", () => {
@@ -48,7 +48,7 @@ test("payment settings exist for buyers and sellers", () => {
 });
 
 test("marketplace reports remain separate from public and admin activity routes", () => {
-  assert.ok(app.includes('<Route path="/admin/reports" element={<AdminReportsPage />} />'));
+  assert.ok(app.includes('path="/admin/reports" element={<AccountRoleRoute allowedRoles={["admin"]}><AdminReportsPage />'));
   assert.ok(app.includes("function ConversationPage()"));
   assert.ok(app.includes('from("marketplace_reports").insert('));
   assert.ok(app.includes('from("account_blocks").insert('));
@@ -77,7 +77,7 @@ test("offer comparison route is available without making the admin page default"
 test("milestones and seller portfolios have dedicated pages without altering the marketplace default route", () => {
  const milestones=readFileSync(new URL("../src/components/OrderMilestonesPanel.jsx",import.meta.url),"utf8");
  const portfolios=readFileSync(new URL("../src/pages/SellerPortfolioPage.jsx",import.meta.url),"utf8");
- assert.ok(app.includes('<Route path="/portfolio" element={<SellerPortfolioPage />} />'));
+ assert.ok(app.includes('path="/portfolio" element={<AccountRoleRoute allowedRoles={["seller"]}><SellerPortfolioPage />'));
  assert.ok(app.includes('<OrderMilestonesPanel order={order} userId={user.id} />'));
  assert.ok(app.includes("export default function App()"));
  assert.ok(milestones.includes('rpc("propose_order_milestones"'));
@@ -112,8 +112,8 @@ test("order uploads validate size and keep storage and metadata consistent", () 
  assert.ok(upload.includes('export function validateUpload'));
  assert.ok(upload.includes('"order-files": 50 * 1024 * 1024'));
  assert.ok(upload.includes('crypto.randomUUID()'));
- assert.ok(app.includes('uniqueUploadPath(order.id, selectedFile)'));
- assert.ok(app.includes('validateUpload(selectedFile, "order-files")'));
+ assert.ok(app.includes('uniqueUploadPath(order.id, file)'));
+ assert.ok(app.includes('validateUpload(file, "order-files")') || app.includes('validateUpload(file,"order-files")'));
  assert.ok(app.includes('storage.from("order-files").remove([filePath])'));
  assert.ok(app.includes('File attached to this order successfully.'));
 });
@@ -126,7 +126,7 @@ test("other uploads validate against bucket size and mime restrictions", () => {
 
 test("seller vacation mode controls are routed separately from admin", () => {
  const page=readFileSync(new URL("../src/pages/SellerAvailabilityPage.jsx",import.meta.url),"utf8");
- assert.ok(app.includes('<Route path="/availability" element={<SellerAvailabilityPage />} />'));
+ assert.ok(app.includes('path="/availability" element={<AccountRoleRoute allowedRoles={["seller"]}><SellerAvailabilityPage />'));
  assert.ok(page.includes('from("seller_availability").upsert('));
  assert.ok(page.includes("accepting_orders:accepting"));
  assert.ok(page.includes("max_active_orders:max"));
@@ -135,7 +135,7 @@ test("seller vacation mode controls are routed separately from admin", () => {
 
 test("gig extras use server-verified order snapshots and a seller-owned manager", () => {
  const manager=readFileSync(new URL("../src/pages/ManageGigExtrasPage.jsx",import.meta.url),"utf8");
- assert.ok(app.includes('<Route path="/services/:id/extras" element={<ManageGigExtrasPage />} />'));
+ assert.ok(app.includes('path="/services/:id/extras" element={<AccountRoleRoute allowedRoles={["seller"]}><ManageGigExtrasPage />'));
  assert.ok(app.includes('source: chosenExtras.length ? "service_with_extras" : "service_offer"'));
  assert.ok(app.includes('gig_package_id: chosenExtras.length ? packageToBuy.id : null'));
  assert.ok(app.includes('gig_extra_ids: chosenExtras.map(item=>item.id)'));
