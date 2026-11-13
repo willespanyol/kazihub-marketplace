@@ -115,7 +115,7 @@ test("order uploads validate size and keep storage and metadata consistent", () 
  assert.ok(app.includes('uniqueUploadPath(order.id, file)'));
  assert.ok(app.includes('validateUpload(file, "order-files")') || app.includes('validateUpload(file,"order-files")'));
  assert.ok(app.includes('storage.from("order-files").remove([filePath])'));
- assert.ok(app.includes('File attached to this order successfully.'));
+ assert.ok(app.includes('File uploaded and attached to this order successfully.'));
 });
 test("other uploads validate against bucket size and mime restrictions", () => {
  assert.ok(app.includes('validateUpload(profileImageFile,"profile-images")'));
